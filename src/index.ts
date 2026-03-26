@@ -33,7 +33,12 @@ const allDefinitions = toolModules.flatMap(m => m.definitions);
 
 const allHandlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {};
 for (const mod of toolModules) {
-  Object.assign(allHandlers, mod.handlers);
+  for (const name of Object.keys(mod.handlers)) {
+    if (allHandlers[name]) {
+      console.error(`WARNING: Duplicate tool handler "${name}" — later registration overwrites earlier one`);
+    }
+    allHandlers[name] = mod.handlers[name];
+  }
 }
 
 const server = new Server(

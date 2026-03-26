@@ -3,6 +3,29 @@ import type { ShopmonkeyResponse } from './types/shopmonkey.js';
 const RAW_BASE_URL = process.env.SHOPMONKEY_BASE_URL ?? 'https://api.shopmonkey.cloud/v3';
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const MAX_RETRIES = 3;
+const MAX_CONCURRENT = 5;
+
+let activeRequests = 0;
+const requestQueue: Array<{ resolve: () => void }> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (activeRequests < MAX_CONCURRENT) {
+    activeRequests++;
+    return;
+  }
+  return new Promise<void>((resolve) => {
+    requestQueue.push({ resolve });
+  });
+}
+
+function releaseSlot(): void {
+  activeRequests--;
+  const next = requestQueue.shift();
+  if (next) {
+    activeRequests++;
+    next.resolve();
+  }
+}
 
 function getApiKey(): string {
   const key = process.env.SHOPMONKEY_API_KEY;
@@ -40,7 +63,22 @@ export async function shopmonkeyRequest<T>(
   params?: Record<string, string>
 ): Promise<T> {
   const apiKey = getApiKey();
+  await acquireSlot();
 
+  try {
+    return await shopmonkeyRequestInner<T>(apiKey, method, path, body, params);
+  } finally {
+    releaseSlot();
+  }
+}
+
+async function shopmonkeyRequestInner<T>(
+  apiKey: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: Record<string, unknown>,
+  params?: Record<string, string>
+): Promise<T> {
   let url: URL;
   try {
     url = new URL(`${BASE_URL}${path}`);
