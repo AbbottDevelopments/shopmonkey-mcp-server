@@ -1,6 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest } from '../client.js';
+import { shopmonkeyRequest, getDefaultLocationId } from '../client.js';
 import type { WorkflowStatus, Location } from '../types/shopmonkey.js';
+import type { ToolHandlerMap } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
@@ -9,7 +10,7 @@ export const definitions: Tool[] = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        locationId: { type: 'string', description: 'Filter by location ID' },
+        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
       },
     },
   },
@@ -26,10 +27,18 @@ export const definitions: Tool[] = [
   },
 ];
 
-export const handlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {
+function applyDefaultLocation(params: Record<string, string>): void {
+  if (!params.locationId) {
+    const defaultId = getDefaultLocationId();
+    if (defaultId) params.locationId = defaultId;
+  }
+}
+
+export const handlers: ToolHandlerMap = {
   async list_workflow_statuses(args) {
     const params: Record<string, string> = {};
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
+    applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<WorkflowStatus[]>('GET', '/workflow_status', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };

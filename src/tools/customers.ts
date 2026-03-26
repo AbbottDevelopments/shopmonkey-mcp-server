@@ -1,6 +1,8 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest, sanitizePathParam } from '../client.js';
+import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
 import type { Customer } from '../types/shopmonkey.js';
+import type { ToolHandlerMap } from '../types/tools.js';
+import { pickFields } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
@@ -10,7 +12,7 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         query: { type: 'string', description: 'Search query to filter customers by name, email, or phone' },
-        locationId: { type: 'string', description: 'Filter by location ID' },
+        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         page: { type: 'number', description: 'Page number for pagination (default: 1)' },
       },
@@ -67,21 +69,21 @@ export const definitions: Tool[] = [
 
 const ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zip'];
 
-function pickFields(args: Record<string, unknown>, allowed: string[]): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (args[key] !== undefined) body[key] = args[key];
+function applyDefaultLocation(params: Record<string, string>): void {
+  if (!params.locationId) {
+    const defaultId = getDefaultLocationId();
+    if (defaultId) params.locationId = defaultId;
   }
-  return body;
 }
 
-export const handlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {
+export const handlers: ToolHandlerMap = {
   async list_customers(args) {
     const params: Record<string, string> = {};
     if (args.query !== undefined) params.query = String(args.query);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.page !== undefined) params.page = String(args.page);
+    applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Customer[]>('GET', '/customer', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };

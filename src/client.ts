@@ -4,6 +4,8 @@ const RAW_BASE_URL = process.env.SHOPMONKEY_BASE_URL ?? 'https://api.shopmonkey.
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const MAX_RETRIES = 3;
 const MAX_CONCURRENT = 5;
+const REQUEST_TIMEOUT_MS = 30_000;
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
 let activeRequests = 0;
 const requestQueue: Array<{ resolve: () => void }> = [];
@@ -32,11 +34,15 @@ function getApiKey(): string {
   if (!key) {
     throw new Error(
       'SHOPMONKEY_API_KEY is not configured. ' +
-      'Set it in your environment or .env file. ' +
+      'Set it in your environment, .env file, or MCP client config. ' +
       'Create one at: Shopmonkey Settings > Integration > API Keys'
     );
   }
   return key;
+}
+
+export function getDefaultLocationId(): string | undefined {
+  return process.env.SHOPMONKEY_LOCATION_ID || undefined;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -106,22 +112,32 @@ async function shopmonkeyRequestInner<T>(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let response: Response;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
       response = await fetch(url.toString(), {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
       });
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        lastError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`);
+      } else {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
       if (attempt < MAX_RETRIES - 1) {
         await sleep(1000 * Math.pow(2, attempt));
         continue;
       }
       throw new Error(`Network error after ${MAX_RETRIES} attempts: ${lastError.message}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    if (response.status === 429) {
+    if (RETRYABLE_STATUS_CODES.has(response.status)) {
       const retryAfter = response.headers.get('Retry-After');
       const waitMs = parseRetryAfter(retryAfter, attempt);
 
@@ -130,10 +146,14 @@ async function shopmonkeyRequestInner<T>(
         continue;
       }
 
-      throw new Error(
-        `Rate limited by Shopmonkey API after ${MAX_RETRIES} attempts. ` +
-        `Retry after ${retryAfter ?? 'unknown'} seconds.`
-      );
+      if (response.status === 429) {
+        throw new Error(
+          `Rate limited by Shopmonkey API after ${MAX_RETRIES} attempts. ` +
+          `Retry after ${retryAfter ?? 'unknown'} seconds.`
+        );
+      }
+      lastError = new Error(`Shopmonkey API returned ${response.status} after ${MAX_RETRIES} attempts`);
+      break;
     }
 
     if (!response.ok) {

@@ -6,10 +6,12 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 
 - **33 tools** across 9 resource groups covering the full Shopmonkey API
 - Bearer token authentication via API key
-- Automatic retry with exponential backoff on rate limits (HTTP 429)
+- Automatic retry with exponential backoff on rate limits (HTTP 429) and server errors (500/502/503/504)
+- 30-second request timeout prevents hung connections
+- Request concurrency control (max 5 simultaneous API calls)
+- Multi-location support via `SHOPMONKEY_LOCATION_ID` default or per-request `locationId`
 - Descriptive error messages surfacing Shopmonkey error codes
-- Multi-location support via `locationId` filtering
-- Works with Claude Desktop, Cursor, and any MCP-compatible client
+- Works with Claude Desktop, Cursor, Claude Code, and any MCP-compatible client
 
 ## Tool Reference
 
@@ -20,7 +22,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 | `get_order` | Get single work order details |
 | `create_order` | Create new work order |
 | `update_order` | Update work order fields |
-| `delete_order` | Delete/void work order |
+| `delete_order` | Permanently delete a work order (requires `confirm: true`) |
 
 ### Customers
 | Tool | Description |
@@ -44,7 +46,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 | `list_inventory_parts` | List parts inventory |
 | `get_inventory_part` | Get single part details |
 | `list_inventory_tires` | List tire inventory |
-| `search_parts` | Search parts catalog |
+| `search_parts` | Search parts catalog (query required) |
 
 ### Appointments
 | Tool | Description |
@@ -59,7 +61,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 |------|-------------|
 | `list_payments` | List payments |
 | `get_payment` | Get payment details |
-| `create_payment` | Record a payment |
+| `create_payment` | Record a payment (orderId and amount required) |
 
 ### Technicians & Labor
 | Tool | Description |
@@ -100,22 +102,26 @@ npm run build
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and fill in your API key:
+Copy `.env.example` to `.env` and add your API key:
 
 ```bash
 cp .env.example .env
 ```
 
+Then edit `.env`:
+
 ```env
-# Required
+# Required — your Shopmonkey API key
 SHOPMONKEY_API_KEY=your_long_lived_api_key_here
 
-# Optional (defaults to production)
+# Optional — defaults to https://api.shopmonkey.cloud/v3
 SHOPMONKEY_BASE_URL=https://api.shopmonkey.cloud/v3
 
-# Optional (for multi-location shops)
+# Optional — set this for multi-location shops to auto-filter all queries to one location
 SHOPMONKEY_LOCATION_ID=
 ```
+
+The server loads `.env` automatically via [dotenv](https://www.npmjs.com/package/dotenv). You can also pass environment variables through your MCP client config (see below) or your shell.
 
 ## MCP Client Configuration
 
@@ -160,10 +166,8 @@ Add to your Cursor MCP settings:
 ### Claude Code
 
 ```bash
-claude mcp add shopmonkey -- node /path/to/shopmonkey-mcp-server/dist/index.js
+claude mcp add shopmonkey -e SHOPMONKEY_API_KEY=your_api_key_here -- node /path/to/shopmonkey-mcp-server/dist/index.js
 ```
-
-Set `SHOPMONKEY_API_KEY` in your shell environment before running Claude Code.
 
 ## Development
 
@@ -176,6 +180,9 @@ npm run dev
 
 # Start server
 npm start
+
+# Run tests
+npm test
 ```
 
 ## Error Handling
@@ -184,8 +191,10 @@ The server handles common API scenarios:
 
 - **Missing API key**: Returns a descriptive error with setup instructions
 - **Rate limiting (429)**: Automatically retries with exponential backoff (up to 3 attempts)
+- **Server errors (500, 502, 503, 504)**: Automatically retries with backoff
+- **Request timeout**: Aborts after 30 seconds with a clear error message
+- **Network failures**: Retries with backoff, returns readable error messages
 - **API errors**: Surfaces Shopmonkey error codes (e.g., `API-xxxxx`, `ORM-xxxxx`) for debugging
-- **Network failures**: Catches and returns readable error messages
 
 ## API Reference
 
@@ -195,4 +204,4 @@ The server handles common API scenarios:
 
 ## License
 
-MIT
+[MIT](LICENSE)

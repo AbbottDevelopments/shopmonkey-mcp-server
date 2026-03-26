@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolHandlerMap } from './types/tools.js';
 
 import * as orders from './tools/orders.js';
 import * as customers from './tools/customers.js';
@@ -16,6 +21,10 @@ import * as payments from './tools/payments.js';
 import * as labor from './tools/labor.js';
 import * as services from './tools/services.js';
 import * as workflow from './tools/workflow.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
 
 const toolModules = [
   orders,
@@ -31,7 +40,7 @@ const toolModules = [
 
 const allDefinitions = toolModules.flatMap(m => m.definitions);
 
-const allHandlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {};
+const allHandlers: ToolHandlerMap = {};
 for (const mod of toolModules) {
   for (const name of Object.keys(mod.handlers)) {
     if (allHandlers[name]) {
@@ -42,7 +51,7 @@ for (const mod of toolModules) {
 }
 
 const server = new Server(
-  { name: 'shopmonkey-mcp-server', version: '1.0.0' },
+  { name: 'shopmonkey-mcp-server', version: pkg.version },
   { capabilities: { tools: {} } }
 );
 

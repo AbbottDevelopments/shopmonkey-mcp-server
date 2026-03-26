@@ -1,6 +1,8 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest, sanitizePathParam } from '../client.js';
+import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
 import type { Order } from '../types/shopmonkey.js';
+import type { ToolHandlerMap } from '../types/tools.js';
+import { pickFields } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
@@ -11,7 +13,7 @@ export const definitions: Tool[] = [
       properties: {
         status: { type: 'string', description: 'Filter by order status (e.g., estimate, work_order, invoice)' },
         customerId: { type: 'string', description: 'Filter orders by customer ID' },
-        locationId: { type: 'string', description: 'Filter by location ID (for multi-location shops)' },
+        locationId: { type: 'string', description: 'Filter by location ID (for multi-location shops). Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         page: { type: 'number', description: 'Page number for pagination (default: 1)' },
       },
@@ -37,7 +39,7 @@ export const definitions: Tool[] = [
         customerId: { type: 'string', description: 'Customer ID to associate with the order' },
         vehicleId: { type: 'string', description: 'Vehicle ID to associate with the order' },
         status: { type: 'string', description: 'Initial order status (e.g., estimate, work_order)' },
-        locationId: { type: 'string', description: 'Location ID for multi-location shops' },
+        locationId: { type: 'string', description: 'Location ID for multi-location shops. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
       },
     },
   },
@@ -57,13 +59,14 @@ export const definitions: Tool[] = [
   },
   {
     name: 'delete_order',
-    description: 'Delete or void a work order by its ID.',
+    description: 'WARNING: Permanently deletes a work order. This cannot be undone. You must pass confirm: true to execute.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         id: { type: 'string', description: 'The work order ID to delete' },
+        confirm: { type: 'boolean', description: 'Must be set to true to confirm deletion. This is a safety guard.' },
       },
-      required: ['id'],
+      required: ['id', 'confirm'],
     },
   },
 ];
@@ -71,15 +74,14 @@ export const definitions: Tool[] = [
 const UPDATE_FIELDS = ['status', 'customerId', 'vehicleId'];
 const CREATE_FIELDS = ['customerId', 'vehicleId', 'status', 'locationId'];
 
-function pickFields(args: Record<string, unknown>, allowed: string[]): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (args[key] !== undefined) body[key] = args[key];
+function applyDefaultLocation(params: Record<string, string>): void {
+  if (!params.locationId) {
+    const defaultId = getDefaultLocationId();
+    if (defaultId) params.locationId = defaultId;
   }
-  return body;
 }
 
-export const handlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {
+export const handlers: ToolHandlerMap = {
   async list_orders(args) {
     const params: Record<string, string> = {};
     if (args.status !== undefined) params.status = String(args.status);
@@ -87,6 +89,7 @@ export const handlers: Record<string, (args: Record<string, unknown>) => Promise
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.page !== undefined) params.page = String(args.page);
+    applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Order[]>('GET', '/order', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
@@ -100,6 +103,10 @@ export const handlers: Record<string, (args: Record<string, unknown>) => Promise
 
   async create_order(args) {
     const body = pickFields(args, CREATE_FIELDS);
+    if (!body.locationId) {
+      const defaultId = getDefaultLocationId();
+      if (defaultId) body.locationId = defaultId;
+    }
     const data = await shopmonkeyRequest<Order>('POST', '/order', body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
@@ -113,6 +120,12 @@ export const handlers: Record<string, (args: Record<string, unknown>) => Promise
 
   async delete_order(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
+    if (args.confirm !== true) {
+      return {
+        content: [{ type: 'text', text: 'Error: Deleting a work order is permanent and cannot be undone. Pass confirm: true to proceed.' }],
+        isError: true,
+      };
+    }
     await shopmonkeyRequest<void>('DELETE', `/order/${sanitizePathParam(String(args.id))}`);
     return { content: [{ type: 'text', text: `Work order ${args.id} deleted successfully.` }] };
   },

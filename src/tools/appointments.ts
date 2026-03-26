@@ -1,6 +1,8 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest, sanitizePathParam } from '../client.js';
+import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
 import type { Appointment } from '../types/shopmonkey.js';
+import type { ToolHandlerMap } from '../types/tools.js';
+import { pickFields } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
@@ -10,7 +12,7 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         customerId: { type: 'string', description: 'Filter appointments by customer ID' },
-        locationId: { type: 'string', description: 'Filter by location ID' },
+        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         startDate: { type: 'string', description: 'Filter by start date (ISO 8601 format)' },
         endDate: { type: 'string', description: 'Filter by end date (ISO 8601 format)' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
@@ -21,13 +23,7 @@ export const definitions: Tool[] = [
   {
     name: 'get_appointment',
     description: 'Get detailed information about a single appointment by its ID.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string', description: 'The appointment ID' },
-      },
-      required: ['id'],
-    },
+    inputSchema: { type: 'object' as const, properties: { id: { type: 'string', description: 'The appointment ID' } }, required: ['id'] },
   },
   {
     name: 'create_appointment',
@@ -42,7 +38,7 @@ export const definitions: Tool[] = [
         endDate: { type: 'string', description: 'Appointment end date/time (ISO 8601 format)' },
         title: { type: 'string', description: 'Appointment title or summary' },
         notes: { type: 'string', description: 'Additional notes for the appointment' },
-        locationId: { type: 'string', description: 'Location ID for multi-location shops' },
+        locationId: { type: 'string', description: 'Location ID for multi-location shops. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
       },
     },
   },
@@ -66,17 +62,17 @@ export const definitions: Tool[] = [
   },
 ];
 
-const ALLOWED_FIELDS = ['customerId', 'vehicleId', 'orderId', 'startDate', 'endDate', 'title', 'notes', 'locationId'];
+const CREATE_FIELDS = ['customerId', 'vehicleId', 'orderId', 'startDate', 'endDate', 'title', 'notes', 'locationId'];
+const UPDATE_FIELDS = ['customerId', 'vehicleId', 'orderId', 'startDate', 'endDate', 'title', 'notes'];
 
-function pickFields(args: Record<string, unknown>, allowed: string[]): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (args[key] !== undefined) body[key] = args[key];
+function applyDefaultLocation(params: Record<string, string>): void {
+  if (!params.locationId) {
+    const defaultId = getDefaultLocationId();
+    if (defaultId) params.locationId = defaultId;
   }
-  return body;
 }
 
-export const handlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {
+export const handlers: ToolHandlerMap = {
   async list_appointments(args) {
     const params: Record<string, string> = {};
     if (args.customerId !== undefined) params.customerId = String(args.customerId);
@@ -85,6 +81,7 @@ export const handlers: Record<string, (args: Record<string, unknown>) => Promise
     if (args.endDate !== undefined) params.endDate = String(args.endDate);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.page !== undefined) params.page = String(args.page);
+    applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Appointment[]>('GET', '/appointment', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
@@ -97,14 +94,18 @@ export const handlers: Record<string, (args: Record<string, unknown>) => Promise
   },
 
   async create_appointment(args) {
-    const body = pickFields(args, ALLOWED_FIELDS);
+    const body = pickFields(args, CREATE_FIELDS);
+    if (!body.locationId) {
+      const defaultId = getDefaultLocationId();
+      if (defaultId) body.locationId = defaultId;
+    }
     const data = await shopmonkeyRequest<Appointment>('POST', '/appointment', body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 
   async update_appointment(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
-    const body = pickFields(args, ALLOWED_FIELDS.filter(f => f !== 'locationId'));
+    const body = pickFields(args, UPDATE_FIELDS);
     const data = await shopmonkeyRequest<Appointment>('PATCH', `/appointment/${sanitizePathParam(String(args.id))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },

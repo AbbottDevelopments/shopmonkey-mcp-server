@@ -1,6 +1,8 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest, sanitizePathParam } from '../client.js';
+import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
 import type { Vehicle } from '../types/shopmonkey.js';
+import type { ToolHandlerMap } from '../types/tools.js';
+import { pickFields } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
@@ -10,7 +12,7 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         customerId: { type: 'string', description: 'Filter vehicles by customer ID' },
-        locationId: { type: 'string', description: 'Filter by location ID' },
+        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         page: { type: 'number', description: 'Page number for pagination (default: 1)' },
       },
@@ -19,13 +21,7 @@ export const definitions: Tool[] = [
   {
     name: 'get_vehicle',
     description: 'Get detailed information about a single vehicle by its ID.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string', description: 'The vehicle ID' },
-      },
-      required: ['id'],
-    },
+    inputSchema: { type: 'object' as const, properties: { id: { type: 'string', description: 'The vehicle ID' } }, required: ['id'] },
   },
   {
     name: 'create_vehicle',
@@ -67,21 +63,21 @@ export const definitions: Tool[] = [
 
 const ALLOWED_FIELDS = ['customerId', 'year', 'make', 'model', 'vin', 'licensePlate', 'color', 'mileage'];
 
-function pickFields(args: Record<string, unknown>, allowed: string[]): Record<string, unknown> {
-  const body: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (args[key] !== undefined) body[key] = args[key];
+function applyDefaultLocation(params: Record<string, string>): void {
+  if (!params.locationId) {
+    const defaultId = getDefaultLocationId();
+    if (defaultId) params.locationId = defaultId;
   }
-  return body;
 }
 
-export const handlers: Record<string, (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>> = {
+export const handlers: ToolHandlerMap = {
   async list_vehicles(args) {
     const params: Record<string, string> = {};
     if (args.customerId !== undefined) params.customerId = String(args.customerId);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.page !== undefined) params.page = String(args.page);
+    applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Vehicle[]>('GET', '/vehicle', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
