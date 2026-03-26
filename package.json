@@ -1,0 +1,35 @@
+{
+  "name": "shopmonkey-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for the Shopmonkey REST API (v3) — work orders, customers, vehicles, inventory, and more",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "shopmonkey-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "shopmonkey",
+    "model-context-protocol",
+    "ai",
+    "auto-repair",
+    "shop-management"
+  ],
+  "author": "AbbottDevelopments",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.8.3"
+  }
+}
