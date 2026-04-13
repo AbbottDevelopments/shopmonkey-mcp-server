@@ -63,7 +63,7 @@ export function sanitizePathParam(value: string): string {
 }
 
 export async function shopmonkeyRequest<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: Record<string, unknown>,
   params?: Record<string, string>
@@ -80,7 +80,7 @@ export async function shopmonkeyRequest<T>(
 
 async function shopmonkeyRequestInner<T>(
   apiKey: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: Record<string, unknown>,
   params?: Record<string, string>
@@ -163,7 +163,7 @@ async function shopmonkeyRequestInner<T>(
 
       try {
         const errorData = JSON.parse(text) as ShopmonkeyResponse<unknown>;
-        errorMessage = errorData.error ?? `HTTP ${response.status}`;
+        errorMessage = errorData.message ?? `HTTP ${response.status}`;
         errorCode = errorData.code;
       } catch {
         errorMessage = text || `HTTP ${response.status} ${response.statusText}`;
@@ -190,8 +190,8 @@ async function shopmonkeyRequestInner<T>(
     if (!data.success) {
       throw new Error(
         data.code
-          ? `Shopmonkey API error [${data.code}]: ${data.error ?? 'Unknown error'}`
-          : `Shopmonkey API error: ${data.error ?? 'Unknown error'}`
+          ? `Shopmonkey API error [${data.code}]: ${data.message ?? 'Unknown error'}`
+          : `Shopmonkey API error: ${data.message ?? 'Unknown error'}`
       );
     }
 

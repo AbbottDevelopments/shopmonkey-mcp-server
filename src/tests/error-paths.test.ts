@@ -95,7 +95,7 @@ describe('Error Paths — Server Errors (500/502/503)', () => {
     let attempts = 0;
     mockFetch(async () => {
       attempts++;
-      return new Response(JSON.stringify({ success: false, error: 'Internal error' }), {
+      return new Response(JSON.stringify({ success: false, message: 'Internal error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },
       });
@@ -181,6 +181,26 @@ describe('Error Paths — Malformed API Responses', () => {
     const result = await callHandler(handlers.list_orders, {});
     assert.ok(result.isError);
     assert.ok(result.content[0].text.includes('Service Unavailable'));
+  });
+});
+
+describe('C2 Regression — API message field surfaces in error string', () => {
+  beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key'; });
+  afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
+
+  it('HTTP 400 error surfaces both code and message from Shopmonkey response', async () => {
+    mockFetch(async () => {
+      return new Response(
+        JSON.stringify({ success: false, code: 'API-12345', message: 'Vehicle VIN is invalid' }),
+        { status: 400, headers: { 'content-type': 'application/json', 'content-length': '73' } }
+      );
+    });
+
+    const { handlers } = await import('../tools/vehicles.js');
+    const result = await callHandler(handlers.get_vehicle, { id: 'bad' });
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes('API-12345'), `Expected API-12345 in: ${result.content[0].text}`);
+    assert.ok(result.content[0].text.includes('Vehicle VIN is invalid'), `Expected message in: ${result.content[0].text}`);
   });
 });
 

@@ -1,7 +1,8 @@
 export interface ShopmonkeyResponse<T> {
   success: boolean;
   data?: T;
-  error?: string;
+  message?: string;
+  documentation_url?: string;
   code?: string;
 }
 
@@ -134,8 +135,53 @@ export interface CannedService {
   id: string;
   name?: string;
   description?: string;
-  price?: number;
-  laborHours?: number;
+  pricing?: 'FixedPrice' | 'LineItem';
+  fixedPriceCents?: number;
+  bookable?: boolean;
+  recommended?: boolean;
+  lumpSum?: boolean;
+  express?: boolean;
+  [key: string]: unknown;
+}
+
+export interface CannedServiceFee {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface CannedServiceLabor {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface CannedServicePart {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface CannedServiceSubcontract {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface CannedServiceTire {
+  id: string;
+  [key: string]: unknown;
+}
+
+export interface Webhook {
+  id: string;
+  name?: string;
+  url?: string;
+  triggers?: string[];
+  enabled?: boolean;
+  secret?: string;
+  version?: number;
+  [key: string]: unknown;
+}
+
+export interface DeferredService {
+  id: string;
   [key: string]: unknown;
 }
 

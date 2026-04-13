@@ -54,7 +54,7 @@ describe('MCP Protocol — Server Startup', () => {
 });
 
 describe('MCP Protocol — Tool Count Verification', () => {
-  it('server registers exactly 33 tools (verified via direct import)', async () => {
+  it('server registers exactly 64 tools (verified via direct import)', async () => {
     const modules = await Promise.all([
       import('../tools/orders.js'),
       import('../tools/customers.js'),
@@ -65,10 +65,12 @@ describe('MCP Protocol — Tool Count Verification', () => {
       import('../tools/labor.js'),
       import('../tools/services.js'),
       import('../tools/workflow.js'),
+      import('../tools/webhooks.js'),
+      import('../tools/reports.js'),
     ]);
 
     const allDefinitions = modules.flatMap(m => m.definitions);
-    assert.equal(allDefinitions.length, 33);
+    assert.equal(allDefinitions.length, 64);
 
     // Verify no duplicates
     const names = allDefinitions.map(d => d.name);
@@ -87,6 +89,8 @@ describe('MCP Protocol — Tool Count Verification', () => {
       import('../tools/labor.js'),
       import('../tools/services.js'),
       import('../tools/workflow.js'),
+      import('../tools/webhooks.js'),
+      import('../tools/reports.js'),
     ]);
 
     const allDefinitions = modules.flatMap(m => m.definitions);
@@ -112,6 +116,8 @@ describe('MCP Protocol — Tool Count Verification', () => {
       import('../tools/labor.js'),
       import('../tools/services.js'),
       import('../tools/workflow.js'),
+      import('../tools/webhooks.js'),
+      import('../tools/reports.js'),
     ]);
 
     const allDefinitions = modules.flatMap(m => m.definitions);
@@ -139,6 +145,8 @@ describe('MCP Protocol — Tool Count Verification', () => {
       import('../tools/labor.js'),
       import('../tools/services.js'),
       import('../tools/workflow.js'),
+      import('../tools/webhooks.js'),
+      import('../tools/reports.js'),
     ]);
 
     const allDefinitions = modules.flatMap(m => m.definitions);

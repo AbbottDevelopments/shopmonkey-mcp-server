@@ -57,8 +57,9 @@ function mockSuccess(data: unknown): MockResponse {
   return { status: 200, body: { success: true, data } };
 }
 
+// C2 fix: Shopmonkey returns { message } not { error }
 function mockError(code: string, message: string, status = 400): MockResponse {
-  return { status, body: { success: false, error: message, code } };
+  return { status, body: { success: false, message, code } };
 }
 
 function mock204(): MockResponse {
@@ -70,11 +71,12 @@ describe('Mock API — Orders', () => {
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
   it('list_orders sends GET /order with params', async () => {
-    setupMock(mockSuccess([{ id: 'ord-1', status: 'estimate' }]));
-    const result = await orders.handlers.list_orders({ status: 'estimate', limit: 10 });
+    // C5 fix: status uses PascalCase
+    setupMock(mockSuccess([{ id: 'ord-1', status: 'Estimate' }]));
+    const result = await orders.handlers.list_orders({ status: 'Estimate', limit: 10 });
     assert.equal(capturedRequests.length, 1);
     assert.ok(capturedRequests[0].url.includes('/order'));
-    assert.ok(capturedRequests[0].url.includes('status=estimate'));
+    assert.ok(capturedRequests[0].url.includes('status=Estimate'));
     assert.ok(capturedRequests[0].url.includes('limit=10'));
     assert.equal(capturedRequests[0].method, 'GET');
     assert.ok(!result.isError);
@@ -83,7 +85,7 @@ describe('Mock API — Orders', () => {
   });
 
   it('get_order sends GET /order/{id}', async () => {
-    setupMock(mockSuccess({ id: 'ord-1', status: 'work_order' }));
+    setupMock(mockSuccess({ id: 'ord-1', status: 'RepairOrder' }));
     const result = await orders.handlers.get_order({ id: 'ord-1' });
     assert.ok(capturedRequests[0].url.includes('/order/ord-1'));
     assert.ok(!result.isError);
@@ -91,11 +93,11 @@ describe('Mock API — Orders', () => {
 
   it('create_order sends POST /order with body', async () => {
     setupMock(mockSuccess({ id: 'ord-new', customerId: 'cust-1' }));
-    const result = await orders.handlers.create_order({ customerId: 'cust-1', status: 'estimate' });
+    const result = await orders.handlers.create_order({ customerId: 'cust-1', status: 'Estimate' });
     assert.equal(capturedRequests[0].method, 'POST');
     const body = JSON.parse(capturedRequests[0].body!);
     assert.equal(body.customerId, 'cust-1');
-    assert.equal(body.status, 'estimate');
+    assert.equal(body.status, 'Estimate');
     assert.ok(!result.isError);
   });
 
@@ -106,31 +108,50 @@ describe('Mock API — Orders', () => {
     assert.equal(body.hackerField, undefined);
   });
 
-  it('update_order sends PATCH /order/{id}', async () => {
-    setupMock(mockSuccess({ id: 'ord-1', status: 'invoice' }));
-    const result = await orders.handlers.update_order({ id: 'ord-1', status: 'invoice' });
-    assert.equal(capturedRequests[0].method, 'PATCH');
+  // C1 fix: update uses PUT not PATCH
+  it('update_order sends PUT /order/{id}', async () => {
+    setupMock(mockSuccess({ id: 'ord-1', status: 'Invoice' }));
+    const result = await orders.handlers.update_order({ id: 'ord-1', status: 'Invoice' });
+    assert.equal(capturedRequests[0].method, 'PUT');
     assert.ok(capturedRequests[0].url.includes('/order/ord-1'));
     assert.ok(!result.isError);
   });
 
-  it('delete_order sends DELETE /order/{id} when confirmed', async () => {
-    setupMock(mock204());
-    const result = await orders.handlers.delete_order({ id: 'ord-1', confirm: true });
-    assert.equal(capturedRequests[0].method, 'DELETE');
-    assert.ok(!result.isError);
-    assert.ok(result.content[0].text.includes('deleted successfully'));
-  });
+  // C3: delete_order removed — no test
 });
 
 describe('Mock API — Customers', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('list_customers sends GET /customer with search query', async () => {
+  // C4 fix: list_customers replaced with search_customers*
+  it('search_customers sends POST /customer/search', async () => {
     setupMock(mockSuccess([{ id: 'cust-1', firstName: 'John' }]));
-    const result = await customers.handlers.list_customers({ query: 'John' });
-    assert.ok(capturedRequests[0].url.includes('query=John'));
+    const result = await customers.handlers.search_customers({ query: 'John' });
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.ok(capturedRequests[0].url.includes('/customer/search'));
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.equal(body.query, 'John');
+    assert.ok(!result.isError);
+  });
+
+  it('search_customers_by_email sends POST /customer/email/search', async () => {
+    setupMock(mockSuccess([{ id: 'cust-1' }]));
+    const result = await customers.handlers.search_customers_by_email({ email: 'john@example.com' });
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.ok(capturedRequests[0].url.includes('/customer/email/search'));
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.equal(body.email, 'john@example.com');
+    assert.ok(!result.isError);
+  });
+
+  it('search_customers_by_phone sends POST /customer/phone_number/search', async () => {
+    setupMock(mockSuccess([{ id: 'cust-1' }]));
+    const result = await customers.handlers.search_customers_by_phone({ phoneNumber: '555-0100' });
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.ok(capturedRequests[0].url.includes('/customer/phone_number/search'));
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.equal(body.phoneNumber, '555-0100');
     assert.ok(!result.isError);
   });
 
@@ -142,10 +163,22 @@ describe('Mock API — Customers', () => {
     assert.equal(body.secret, undefined);
   });
 
-  it('update_customer sends PATCH /customer/{id}', async () => {
-    setupMock(mockSuccess({ id: 'cust-1', phone: '555-1234' }));
-    const result = await customers.handlers.update_customer({ id: 'cust-1', phone: '555-1234' });
-    assert.equal(capturedRequests[0].method, 'PATCH');
+  // C6 fix: email/phone are sub-resources, not flat fields
+  it('create_customer does not forward email or phone fields', async () => {
+    setupMock(mockSuccess({ id: 'cust-new' }));
+    await customers.handlers.create_customer({ firstName: 'Jane', email: 'jane@x.com', phone: '555-1234' });
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.equal(body.firstName, 'Jane');
+    assert.equal(body.email, undefined);
+    assert.equal(body.phone, undefined);
+  });
+
+  // C1 fix: update uses PUT not PATCH
+  it('update_customer sends PUT /customer/{id}', async () => {
+    setupMock(mockSuccess({ id: 'cust-1' }));
+    const result = await customers.handlers.update_customer({ id: 'cust-1', firstName: 'Jane' });
+    assert.equal(capturedRequests[0].method, 'PUT');
+    assert.ok(capturedRequests[0].url.includes('/customer/cust-1'));
     assert.ok(!result.isError);
   });
 });
@@ -154,10 +187,29 @@ describe('Mock API — Vehicles', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('list_vehicles filters by customerId', async () => {
+  // list_vehicles removed — replaced with list_vehicles_for_customer
+  it('list_vehicles_for_customer sends GET /customer/:id/vehicle', async () => {
     setupMock(mockSuccess([{ id: 'veh-1', make: 'Toyota' }]));
-    await vehicles.handlers.list_vehicles({ customerId: 'cust-1' });
-    assert.ok(capturedRequests[0].url.includes('customerId=cust-1'));
+    const result = await vehicles.handlers.list_vehicles_for_customer({ customerId: 'cust-1' });
+    assert.equal(capturedRequests[0].method, 'GET');
+    assert.ok(capturedRequests[0].url.includes('/customer/cust-1/vehicle'));
+    assert.ok(!result.isError);
+  });
+
+  it('lookup_vehicle_by_vin sends GET /vehicle/vin/:vin', async () => {
+    setupMock(mockSuccess({ id: 'veh-1', vin: '1HGBH41JXMN109186' }));
+    const result = await vehicles.handlers.lookup_vehicle_by_vin({ vin: '1HGBH41JXMN109186' });
+    assert.equal(capturedRequests[0].method, 'GET');
+    assert.ok(capturedRequests[0].url.includes('/vehicle/vin/1HGBH41JXMN109186'));
+    assert.ok(!result.isError);
+  });
+
+  it('lookup_vehicle_by_plate sends GET /vehicle/license_plate/:region/:plate', async () => {
+    setupMock(mockSuccess({ id: 'veh-1' }));
+    const result = await vehicles.handlers.lookup_vehicle_by_plate({ region: 'US-CA', plate: 'ABC123' });
+    assert.equal(capturedRequests[0].method, 'GET');
+    assert.ok(capturedRequests[0].url.includes('/vehicle/license_plate/US-CA/ABC123'));
+    assert.ok(!result.isError);
   });
 
   it('create_vehicle sends correct body', async () => {
@@ -166,6 +218,15 @@ describe('Mock API — Vehicles', () => {
     const body = JSON.parse(capturedRequests[0].body!);
     assert.equal(body.make, 'Ford');
     assert.equal(body.year, 2024);
+  });
+
+  // C1 fix: update uses PUT not PATCH
+  it('update_vehicle sends PUT /vehicle/{id}', async () => {
+    setupMock(mockSuccess({ id: 'veh-1' }));
+    const result = await vehicles.handlers.update_vehicle({ id: 'veh-1', mileage: 50000 });
+    assert.equal(capturedRequests[0].method, 'PUT');
+    assert.ok(capturedRequests[0].url.includes('/vehicle/veh-1'));
+    assert.ok(!result.isError);
   });
 });
 
@@ -207,10 +268,13 @@ describe('Mock API — Appointments', () => {
     assert.equal(body.title, 'Oil Change');
   });
 
-  it('update_appointment sends PATCH', async () => {
+  // C1 fix: update uses PUT not PATCH
+  it('update_appointment sends PUT /appointment/{id}', async () => {
     setupMock(mockSuccess({ id: 'apt-1' }));
-    await appointments.handlers.update_appointment({ id: 'apt-1', title: 'Brake Check' });
-    assert.equal(capturedRequests[0].method, 'PATCH');
+    const result = await appointments.handlers.update_appointment({ id: 'apt-1', title: 'Brake Check' });
+    assert.equal(capturedRequests[0].method, 'PUT');
+    assert.ok(capturedRequests[0].url.includes('/appointment/apt-1'));
+    assert.ok(!result.isError);
   });
 });
 
@@ -218,12 +282,13 @@ describe('Mock API — Payments', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('create_payment sends correct body', async () => {
+  // I2 fix: amount renamed to amountCents, value is integer cents
+  it('create_payment sends correct body with amountCents', async () => {
     setupMock(mockSuccess({ id: 'pay-new' }));
-    await payments.handlers.create_payment({ orderId: 'ord-1', amount: 150.50, method: 'credit_card' });
+    await payments.handlers.create_payment({ orderId: 'ord-1', amountCents: 15050, method: 'credit_card' });
     const body = JSON.parse(capturedRequests[0].body!);
     assert.equal(body.orderId, 'ord-1');
-    assert.equal(body.amount, 150.50);
+    assert.equal(body.amountCents, 15050);
     assert.equal(body.method, 'credit_card');
   });
 });
@@ -310,7 +375,7 @@ describe('Mock API — Auth header', () => {
 
   it('sends Content-Type on POST requests', async () => {
     setupMock(mockSuccess({ id: 'new' }));
-    await orders.handlers.create_order({ status: 'estimate' });
+    await orders.handlers.create_order({ status: 'Estimate' });
     assert.equal(capturedRequests[0].headers['Content-Type'], 'application/json');
   });
 });
@@ -352,14 +417,16 @@ describe('Mock API — Shopmonkey error handling', () => {
     }
   });
 
-  it('handles success:false responses', async () => {
-    setupMock({ status: 200, body: { success: false, error: 'Invalid field', code: 'ORM-500' } });
+  // C2 fix: success:false body uses message not error
+  it('handles success:false responses with message field', async () => {
+    setupMock({ status: 200, body: { success: false, message: 'Invalid field', code: 'ORM-500' } });
     try {
       await orders.handlers.get_order({ id: 'ord-1' });
       assert.fail('Expected an error to be thrown');
     } catch (err) {
       const message = (err as Error).message;
       assert.ok(message.includes('ORM-500'));
+      assert.ok(message.includes('Invalid field'));
     }
   });
 });

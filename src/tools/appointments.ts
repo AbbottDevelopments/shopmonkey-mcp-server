@@ -106,7 +106,7 @@ export const handlers: ToolHandlerMap = {
   async update_appointment(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
     const body = pickFields(args, UPDATE_FIELDS);
-    const data = await shopmonkeyRequest<Appointment>('PATCH', `/appointment/${sanitizePathParam(String(args.id))}`, body);
+    const data = await shopmonkeyRequest<Appointment>('PUT', `/appointment/${sanitizePathParam(String(args.id))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 };

@@ -11,7 +11,7 @@ export const definitions: Tool[] = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string', description: 'Filter by order status (e.g., estimate, work_order, invoice)' },
+        status: { type: 'string', description: 'Filter by order status. Valid values: Estimate, RepairOrder, Invoice' },
         customerId: { type: 'string', description: 'Filter orders by customer ID' },
         locationId: { type: 'string', description: 'Filter by location ID (for multi-location shops). Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
@@ -38,7 +38,7 @@ export const definitions: Tool[] = [
       properties: {
         customerId: { type: 'string', description: 'Customer ID to associate with the order' },
         vehicleId: { type: 'string', description: 'Vehicle ID to associate with the order' },
-        status: { type: 'string', description: 'Initial order status (e.g., estimate, work_order)' },
+        status: { type: 'string', description: 'Initial order status. Valid values: Estimate, RepairOrder, Invoice' },
         locationId: { type: 'string', description: 'Location ID for multi-location shops. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
       },
     },
@@ -50,23 +50,11 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         id: { type: 'string', description: 'The work order ID to update' },
-        status: { type: 'string', description: 'New order status' },
+        status: { type: 'string', description: 'New order status. Valid values: Estimate, RepairOrder, Invoice' },
         customerId: { type: 'string', description: 'New customer ID' },
         vehicleId: { type: 'string', description: 'New vehicle ID' },
       },
       required: ['id'],
-    },
-  },
-  {
-    name: 'delete_order',
-    description: 'WARNING: Permanently deletes a work order. This cannot be undone. You must pass confirm: true to execute.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string', description: 'The work order ID to delete' },
-        confirm: { type: 'boolean', description: 'Must be set to true to confirm deletion. This is a safety guard.' },
-      },
-      required: ['id', 'confirm'],
     },
   },
 ];
@@ -114,19 +102,7 @@ export const handlers: ToolHandlerMap = {
   async update_order(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
     const body = pickFields(args, UPDATE_FIELDS);
-    const data = await shopmonkeyRequest<Order>('PATCH', `/order/${sanitizePathParam(String(args.id))}`, body);
+    const data = await shopmonkeyRequest<Order>('PUT', `/order/${sanitizePathParam(String(args.id))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
-  },
-
-  async delete_order(args) {
-    if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
-    if (args.confirm !== true) {
-      return {
-        content: [{ type: 'text', text: 'Error: Deleting a work order is permanent and cannot be undone. Pass confirm: true to proceed.' }],
-        isError: true,
-      };
-    }
-    await shopmonkeyRequest<void>('DELETE', `/order/${sanitizePathParam(String(args.id))}`);
-    return { content: [{ type: 'text', text: `Work order ${args.id} deleted successfully.` }] };
   },
 };

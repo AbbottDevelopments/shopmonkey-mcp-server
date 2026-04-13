@@ -30,16 +30,16 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         orderId: { type: 'string', description: 'Work order ID to apply the payment to' },
-        amount: { type: 'number', description: 'Payment amount in dollars' },
+        amountCents: { type: 'number', description: 'Payment amount in integer cents. Example: $150.50 = 15050. NEVER send a decimal value.' },
         method: { type: 'string', description: 'Payment method (e.g., cash, credit_card, check)' },
         notes: { type: 'string', description: 'Additional notes about the payment' },
       },
-      required: ['orderId', 'amount'],
+      required: ['orderId', 'amountCents'],
     },
   },
 ];
 
-const CREATE_FIELDS = ['orderId', 'amount', 'method', 'notes'];
+const CREATE_FIELDS = ['orderId', 'amountCents', 'method', 'notes'];
 
 function applyDefaultLocation(params: Record<string, string>): void {
   if (!params.locationId) {
@@ -69,7 +69,10 @@ export const handlers: ToolHandlerMap = {
 
   async create_payment(args) {
     if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
-    if (args.amount === undefined) return { content: [{ type: 'text', text: 'Error: amount is required' }], isError: true };
+    if (args.amountCents === undefined) return { content: [{ type: 'text', text: 'Error: amountCents is required' }], isError: true };
+    if (!Number.isInteger(Number(args.amountCents)) || Number(args.amountCents) <= 0) {
+      return { content: [{ type: 'text', text: 'Error: amountCents must be a positive integer (cents, not dollars). Example: $150.50 = 15050' }], isError: true };
+    }
     const body = pickFields(args, CREATE_FIELDS);
     const data = await shopmonkeyRequest<Payment>('POST', '/payment', body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };

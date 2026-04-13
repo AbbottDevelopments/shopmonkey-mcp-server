@@ -1,3 +1,5 @@
+// Email and phone are sub-resources in Shopmonkey. After creating a customer, use POST /v3/customer/:id/email
+// and POST /v3/customer/:id/phone_number to attach contact info. Those sub-resource tools are tracked in Spec 2.
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
 import type { Customer } from '../types/shopmonkey.js';
@@ -6,16 +8,38 @@ import { pickFields } from '../types/tools.js';
 
 export const definitions: Tool[] = [
   {
-    name: 'list_customers',
-    description: 'List customers from Shopmonkey. Supports search and pagination.',
+    name: 'search_customers',
+    description: 'Search customers in Shopmonkey by query string. Supports full-body search with pagination.',
     inputSchema: {
       type: 'object' as const,
       properties: {
-        query: { type: 'string', description: 'Search query to filter customers by name, email, or phone' },
+        query: { type: 'string', description: 'Search query to filter customers by name or other fields' },
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         page: { type: 'number', description: 'Page number for pagination (default: 1)' },
       },
+    },
+  },
+  {
+    name: 'search_customers_by_email',
+    description: 'Search for a customer in Shopmonkey by email address.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        email: { type: 'string', description: 'Customer email address to search for' },
+      },
+      required: ['email'],
+    },
+  },
+  {
+    name: 'search_customers_by_phone',
+    description: 'Search for a customer in Shopmonkey by phone number.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        phoneNumber: { type: 'string', description: 'Customer phone number to search for' },
+      },
+      required: ['phoneNumber'],
     },
   },
   {
@@ -37,8 +61,6 @@ export const definitions: Tool[] = [
       properties: {
         firstName: { type: 'string', description: 'Customer first name' },
         lastName: { type: 'string', description: 'Customer last name' },
-        email: { type: 'string', description: 'Customer email address' },
-        phone: { type: 'string', description: 'Customer phone number' },
         address: { type: 'string', description: 'Street address' },
         city: { type: 'string', description: 'City' },
         state: { type: 'string', description: 'State' },
@@ -55,8 +77,6 @@ export const definitions: Tool[] = [
         id: { type: 'string', description: 'The customer ID to update' },
         firstName: { type: 'string', description: 'Customer first name' },
         lastName: { type: 'string', description: 'Customer last name' },
-        email: { type: 'string', description: 'Customer email address' },
-        phone: { type: 'string', description: 'Customer phone number' },
         address: { type: 'string', description: 'Street address' },
         city: { type: 'string', description: 'City' },
         state: { type: 'string', description: 'State' },
@@ -67,25 +87,33 @@ export const definitions: Tool[] = [
   },
 ];
 
-const ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zip'];
+const ALLOWED_FIELDS = ['firstName', 'lastName', 'address', 'city', 'state', 'zip'];
+const SEARCH_FIELDS = ['query', 'limit', 'page', 'locationId'];
 
-function applyDefaultLocation(params: Record<string, string>): void {
-  if (!params.locationId) {
+function applyDefaultLocation(body: Record<string, unknown>): void {
+  if (!body.locationId) {
     const defaultId = getDefaultLocationId();
-    if (defaultId) params.locationId = defaultId;
+    if (defaultId) body.locationId = defaultId;
   }
 }
 
 export const handlers: ToolHandlerMap = {
-  async list_customers(args) {
-    const params: Record<string, string> = {};
-    if (args.query !== undefined) params.query = String(args.query);
-    if (args.locationId !== undefined) params.locationId = String(args.locationId);
-    if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
-    applyDefaultLocation(params);
+  async search_customers(args) {
+    const body = pickFields(args, SEARCH_FIELDS);
+    applyDefaultLocation(body);
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/search', body);
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  },
 
-    const data = await shopmonkeyRequest<Customer[]>('GET', '/customer', undefined, params);
+  async search_customers_by_email(args) {
+    if (!args.email) return { content: [{ type: 'text', text: 'Error: email is required' }], isError: true };
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/email/search', { email: args.email });
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  },
+
+  async search_customers_by_phone(args) {
+    if (!args.phoneNumber) return { content: [{ type: 'text', text: 'Error: phoneNumber is required' }], isError: true };
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/phone_number/search', { phoneNumber: args.phoneNumber });
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 
@@ -104,7 +132,7 @@ export const handlers: ToolHandlerMap = {
   async update_customer(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
     const body = pickFields(args, ALLOWED_FIELDS);
-    const data = await shopmonkeyRequest<Customer>('PATCH', `/customer/${sanitizePathParam(String(args.id))}`, body);
+    const data = await shopmonkeyRequest<Customer>('PUT', `/customer/${sanitizePathParam(String(args.id))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 };
