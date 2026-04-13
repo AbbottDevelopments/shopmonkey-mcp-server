@@ -12,7 +12,7 @@ export const definitions: Tool[] = [
       properties: {
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -29,7 +29,7 @@ export const definitions: Tool[] = [
       properties: {
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -41,7 +41,7 @@ export const definitions: Tool[] = [
       properties: {
         query: { type: 'string', description: 'Search query for parts (name, part number, or description)' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
       required: ['query'],
     },
@@ -60,7 +60,7 @@ export const handlers: ToolHandlerMap = {
     const params: Record<string, string> = {};
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<InventoryPart[]>('GET', '/inventory/part', undefined, params);
@@ -77,7 +77,7 @@ export const handlers: ToolHandlerMap = {
     const params: Record<string, string> = {};
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<InventoryTire[]>('GET', '/inventory/tire', undefined, params);
@@ -88,7 +88,7 @@ export const handlers: ToolHandlerMap = {
     if (!args.query) return { content: [{ type: 'text', text: 'Error: query is required' }], isError: true };
     const params: Record<string, string> = { query: String(args.query) };
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
 
     const data = await shopmonkeyRequest<InventoryPart[]>('GET', '/part', undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };

@@ -16,7 +16,7 @@ export const definitions: Tool[] = [
         query: { type: 'string', description: 'Search query to filter customers by name or other fields' },
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -88,7 +88,7 @@ export const definitions: Tool[] = [
 ];
 
 const ALLOWED_FIELDS = ['firstName', 'lastName', 'address', 'city', 'state', 'zip'];
-const SEARCH_FIELDS = ['query', 'limit', 'page', 'locationId'];
+const SEARCH_FIELDS = ['query', 'limit', 'skip', 'locationId'];
 
 function applyDefaultLocation(body: Record<string, unknown>): void {
   if (!body.locationId) {

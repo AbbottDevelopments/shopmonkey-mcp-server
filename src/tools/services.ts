@@ -17,7 +17,7 @@ export const definitions: Tool[] = [
         orderId: { type: 'string', description: 'Filter services by work order ID' },
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -29,7 +29,7 @@ export const definitions: Tool[] = [
       properties: {
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -350,7 +350,7 @@ export const definitions: Tool[] = [
       properties: {
         customerId: { type: 'string', description: 'The customer ID to list deferred services for' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
       required: ['customerId'],
     },
@@ -375,7 +375,7 @@ export const handlers: ToolHandlerMap = {
     if (args.orderId !== undefined) params.orderId = String(args.orderId);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Service[]>('GET', '/service', undefined, params);
@@ -386,7 +386,7 @@ export const handlers: ToolHandlerMap = {
     const params: Record<string, string> = {};
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<CannedService[]>('GET', '/canned_service', undefined, params);
@@ -545,7 +545,7 @@ export const handlers: ToolHandlerMap = {
     if (!args.customerId) return { content: [{ type: 'text', text: 'Error: customerId is required' }], isError: true };
     const params: Record<string, string> = {};
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     const data = await shopmonkeyRequest<DeferredService[]>('GET', `/customer/${sanitizePathParam(String(args.customerId))}/deferred_service`, undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },

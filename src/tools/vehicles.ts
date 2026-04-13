@@ -54,7 +54,7 @@ export const definitions: Tool[] = [
       properties: {
         customerId: { type: 'string', description: 'The customer ID whose vehicles to list' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
       required: ['customerId'],
     },
@@ -121,7 +121,7 @@ export const handlers: ToolHandlerMap = {
     if (!args.customerId) return { content: [{ type: 'text', text: 'Error: customerId is required' }], isError: true };
     const params: Record<string, string> = {};
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     const data = await shopmonkeyRequest<Vehicle[]>('GET', `/customer/${sanitizePathParam(String(args.customerId))}/vehicle`, undefined, params);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },

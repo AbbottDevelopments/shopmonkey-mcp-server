@@ -13,7 +13,7 @@ export const definitions: Tool[] = [
         orderId: { type: 'string', description: 'Filter labor entries by work order ID' },
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -28,7 +28,7 @@ export const definitions: Tool[] = [
         startDate: { type: 'string', description: 'Filter by start date (ISO 8601 format)' },
         endDate: { type: 'string', description: 'Filter by end date (ISO 8601 format)' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -40,7 +40,7 @@ export const definitions: Tool[] = [
       properties: {
         locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -64,7 +64,7 @@ export const handlers: ToolHandlerMap = {
     if (args.orderId !== undefined) params.orderId = String(args.orderId);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Labor[]>('GET', '/labor', undefined, params);
@@ -78,7 +78,7 @@ export const handlers: ToolHandlerMap = {
     if (args.startDate !== undefined) params.startDate = String(args.startDate);
     if (args.endDate !== undefined) params.endDate = String(args.endDate);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<TimeclockEntry[]>('GET', '/timeclock', undefined, params);
@@ -89,7 +89,7 @@ export const handlers: ToolHandlerMap = {
     const params: Record<string, string> = {};
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<User[]>('GET', '/user', undefined, params);

@@ -16,7 +16,7 @@ export const definitions: Tool[] = [
         startDate: { type: 'string', description: 'Filter by start date (ISO 8601 format)' },
         endDate: { type: 'string', description: 'Filter by end date (ISO 8601 format)' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -80,7 +80,7 @@ export const handlers: ToolHandlerMap = {
     if (args.startDate !== undefined) params.startDate = String(args.startDate);
     if (args.endDate !== undefined) params.endDate = String(args.endDate);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Appointment[]>('GET', '/appointment', undefined, params);

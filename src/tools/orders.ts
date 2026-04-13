@@ -15,7 +15,7 @@ export const definitions: Tool[] = [
         customerId: { type: 'string', description: 'Filter orders by customer ID' },
         locationId: { type: 'string', description: 'Filter by location ID (for multi-location shops). Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        page: { type: 'number', description: 'Page number for pagination (default: 1)' },
+        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
     },
   },
@@ -76,7 +76,7 @@ export const handlers: ToolHandlerMap = {
     if (args.customerId !== undefined) params.customerId = String(args.customerId);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.page !== undefined) params.page = String(args.page);
+    if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);
 
     const data = await shopmonkeyRequest<Order[]>('GET', '/order', undefined, params);
