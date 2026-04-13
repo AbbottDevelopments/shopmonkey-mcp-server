@@ -46,7 +46,9 @@ async function main(): Promise<void> {
   });
 
   httpServer.listen(PORT, () => {
-    process.stderr.write(`Shopmonkey MCP HTTP server listening on :${PORT}\n`);
+    const addr = httpServer.address();
+    const actualPort = typeof addr === 'object' && addr ? addr.port : PORT;
+    process.stderr.write(`Shopmonkey MCP HTTP server listening on :${actualPort}\n`);
   });
 
   // D2: Graceful shutdown with force-kill timeout

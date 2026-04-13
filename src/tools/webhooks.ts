@@ -115,6 +115,9 @@ export const handlers: ToolHandlerMap = {
   async create_webhook(args) {
     if (!args.name) return { content: [{ type: 'text', text: 'Error: name is required' }], isError: true };
     if (!args.url) return { content: [{ type: 'text', text: 'Error: url is required' }], isError: true };
+    if (!String(args.url).startsWith('https://')) {
+      return { content: [{ type: 'text', text: 'Error: webhook URL must use HTTPS (e.g., https://hook.make.com/...)' }], isError: true };
+    }
     if (!args.triggers) return { content: [{ type: 'text', text: 'Error: triggers is required' }], isError: true };
     const body = pickFields(args, WEBHOOK_FIELDS);
     const data = await shopmonkeyRequest<Webhook>('POST', '/webhook', body);
@@ -123,6 +126,9 @@ export const handlers: ToolHandlerMap = {
 
   async update_webhook(args) {
     if (!args.id) return { content: [{ type: 'text', text: 'Error: id is required' }], isError: true };
+    if (args.url !== undefined && !String(args.url).startsWith('https://')) {
+      return { content: [{ type: 'text', text: 'Error: webhook URL must use HTTPS (e.g., https://hook.make.com/...)' }], isError: true };
+    }
     const body = pickFields(args, WEBHOOK_FIELDS);
     const data = await shopmonkeyRequest<Webhook>('PUT', `/webhook/${sanitizePathParam(String(args.id))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };

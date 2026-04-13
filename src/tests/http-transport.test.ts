@@ -8,21 +8,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const httpServerPath = join(__dirname, '..', 'http.js');
 
-const TEST_PORT = 13579;
 const TEST_AUTH_TOKEN = 'test-auth-secret-42';
 
 let httpServer: ChildProcess | null = null;
+let serverPort: number;
 
-async function waitForReady(child: ChildProcess, marker: string, timeoutMs = 5000): Promise<void> {
+// D8: Parse actual port from stderr instead of hardcoding — avoids EADDRINUSE in parallel CI
+async function waitForReady(child: ChildProcess, timeoutMs = 5000): Promise<number> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`Timeout waiting for "${marker}" on stderr`));
+      reject(new Error('Timeout waiting for HTTP server to start'));
     }, timeoutMs);
 
     child.stderr!.on('data', (chunk: Buffer) => {
-      if (chunk.toString().includes(marker)) {
+      const match = chunk.toString().match(/listening on :(\d+)/);
+      if (match) {
         clearTimeout(timer);
-        resolve();
+        resolve(Number(match[1]));
       }
     });
 
@@ -41,11 +43,11 @@ describe('HTTP Transport — smoke test', () => {
         ...process.env,
         SHOPMONKEY_API_KEY: 'test-key',
         MCP_AUTH_TOKEN: TEST_AUTH_TOKEN,
-        PORT: String(TEST_PORT),
+        PORT: '0', // OS-assigned port
       },
     });
 
-    await waitForReady(httpServer, `listening on :${TEST_PORT}`);
+    serverPort = await waitForReady(httpServer);
   });
 
   after(() => {
@@ -53,7 +55,7 @@ describe('HTTP Transport — smoke test', () => {
   });
 
   it('responds 200 to tools/list JSON-RPC request with valid auth', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/`, {
+    const response = await fetch(`http://localhost:${serverPort}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,14 +98,14 @@ describe('HTTP Transport — smoke test', () => {
 
   // D3: Health check endpoint
   it('GET /health returns 200 with status ok', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/health`);
+    const response = await fetch(`http://localhost:${serverPort}/health`);
     assert.equal(response.status, 200);
     const body = await response.json() as Record<string, unknown>;
     assert.equal(body.status, 'ok');
   });
 
   it('GET / returns 200 health check (load balancer probe)', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/`);
+    const response = await fetch(`http://localhost:${serverPort}/`);
     assert.equal(response.status, 200);
     const body = await response.json() as Record<string, unknown>;
     assert.equal(body.status, 'ok');
@@ -111,7 +113,7 @@ describe('HTTP Transport — smoke test', () => {
 
   // D1: Auth enforcement
   it('POST without auth token returns 401', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/`, {
+    const response = await fetch(`http://localhost:${serverPort}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
@@ -122,7 +124,7 @@ describe('HTTP Transport — smoke test', () => {
   });
 
   it('POST with wrong auth token returns 401', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/`, {
+    const response = await fetch(`http://localhost:${serverPort}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

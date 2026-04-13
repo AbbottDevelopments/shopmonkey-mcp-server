@@ -138,6 +138,41 @@ describe('Webhooks — CRUD', () => {
   });
 });
 
+// D4: Webhook URL HTTPS validation
+describe('Webhooks — URL validation', () => {
+  beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
+  afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
+  it('create_webhook rejects HTTP URL', async () => {
+    const result = await webhooks.handlers.create_webhook({
+      name: 'bad', url: 'http://insecure.example.com/hook', triggers: ['Order'],
+    });
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes('HTTPS'));
+  });
+
+  it('create_webhook accepts HTTPS URL', async () => {
+    setupMock(mockSuccess({ id: 'wh-new' }));
+    const result = await webhooks.handlers.create_webhook({
+      name: 'good', url: 'https://hook.make.com/abc', triggers: ['Order'],
+    });
+    assert.ok(!result.isError);
+  });
+
+  it('update_webhook rejects HTTP URL', async () => {
+    const result = await webhooks.handlers.update_webhook({
+      id: 'wh-1', url: 'http://insecure.example.com',
+    });
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes('HTTPS'));
+  });
+
+  it('update_webhook allows omitting URL', async () => {
+    setupMock(mockSuccess({ id: 'wh-1' }));
+    const result = await webhooks.handlers.update_webhook({ id: 'wh-1', enabled: false });
+    assert.ok(!result.isError);
+  });
+});
+
 describe('Webhooks — Schema validation', () => {
   it('create_webhook definition has 11-member trigger enum', () => {
     const def = webhooks.definitions.find(d => d.name === 'create_webhook');

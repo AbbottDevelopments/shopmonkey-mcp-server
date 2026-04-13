@@ -118,6 +118,18 @@ describe('Tool safety guards', () => {
     assert.ok(result.content[0].text.includes('positive integer'));
   });
 
+  // D7: Status enum constraint on order tools
+  it('order status fields have enum constraint', () => {
+    const statusEnum = ['Estimate', 'RepairOrder', 'Invoice'];
+    for (const toolName of ['list_orders', 'create_order', 'update_order']) {
+      const def = orders.definitions.find(d => d.name === toolName);
+      assert.ok(def, `${toolName} definition not found`);
+      const schema = def.inputSchema as Record<string, unknown>;
+      const props = schema.properties as Record<string, Record<string, unknown>>;
+      assert.deepEqual(props.status.enum, statusEnum, `${toolName} status enum mismatch`);
+    }
+  });
+
   it('create_canned_service requires name', async () => {
     const result = await services.handlers.create_canned_service({});
     assert.ok(result.isError);

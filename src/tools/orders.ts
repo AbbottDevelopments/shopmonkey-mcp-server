@@ -11,7 +11,7 @@ export const definitions: Tool[] = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string', description: 'Filter by order status. Valid values: Estimate, RepairOrder, Invoice' },
+        status: { type: 'string', enum: ['Estimate', 'RepairOrder', 'Invoice'], description: 'Filter by order status' },
         customerId: { type: 'string', description: 'Filter orders by customer ID' },
         locationId: { type: 'string', description: 'Filter by location ID (for multi-location shops). Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
@@ -38,7 +38,7 @@ export const definitions: Tool[] = [
       properties: {
         customerId: { type: 'string', description: 'Customer ID to associate with the order' },
         vehicleId: { type: 'string', description: 'Vehicle ID to associate with the order' },
-        status: { type: 'string', description: 'Initial order status. Valid values: Estimate, RepairOrder, Invoice' },
+        status: { type: 'string', enum: ['Estimate', 'RepairOrder', 'Invoice'], description: 'Initial order status' },
         locationId: { type: 'string', description: 'Location ID for multi-location shops. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
       },
     },
@@ -50,7 +50,7 @@ export const definitions: Tool[] = [
       type: 'object' as const,
       properties: {
         id: { type: 'string', description: 'The work order ID to update' },
-        status: { type: 'string', description: 'New order status. Valid values: Estimate, RepairOrder, Invoice' },
+        status: { type: 'string', enum: ['Estimate', 'RepairOrder', 'Invoice'], description: 'New order status' },
         customerId: { type: 'string', description: 'New customer ID' },
         vehicleId: { type: 'string', description: 'New vehicle ID' },
       },
