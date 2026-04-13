@@ -9,6 +9,7 @@ const __dirname = dirname(__filename);
 const httpServerPath = join(__dirname, '..', 'http.js');
 
 const TEST_PORT = 13579;
+const TEST_AUTH_TOKEN = 'test-auth-secret-42';
 
 let httpServer: ChildProcess | null = null;
 
@@ -39,6 +40,7 @@ describe('HTTP Transport — smoke test', () => {
       env: {
         ...process.env,
         SHOPMONKEY_API_KEY: 'test-key',
+        MCP_AUTH_TOKEN: TEST_AUTH_TOKEN,
         PORT: String(TEST_PORT),
       },
     });
@@ -50,10 +52,14 @@ describe('HTTP Transport — smoke test', () => {
     try { httpServer?.kill('SIGTERM'); } catch { /* already dead */ }
   });
 
-  it('responds 200 to tools/list JSON-RPC request', async () => {
+  it('responds 200 to tools/list JSON-RPC request with valid auth', async () => {
     const response = await fetch(`http://localhost:${TEST_PORT}/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Authorization': `Bearer ${TEST_AUTH_TOKEN}`,
+      },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     });
 
@@ -65,7 +71,6 @@ describe('HTTP Transport — smoke test', () => {
     let tools: unknown[] | null = null;
 
     if (response.headers.get('content-type')?.includes('text/event-stream')) {
-      // SSE: extract the data lines and find tools
       const lines = text.split('\n');
       for (const line of lines) {
         if (line.startsWith('data: ')) {
@@ -87,5 +92,44 @@ describe('HTTP Transport — smoke test', () => {
 
     assert.ok(tools !== null, `Could not find tools in response: ${text.slice(0, 500)}`);
     assert.ok(tools!.length >= 64, `Expected at least 64 tools, got ${tools!.length}`);
+  });
+
+  // D3: Health check endpoint
+  it('GET /health returns 200 with status ok', async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/health`);
+    assert.equal(response.status, 200);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.status, 'ok');
+  });
+
+  it('GET / returns 200 health check (load balancer probe)', async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/`);
+    assert.equal(response.status, 200);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.status, 'ok');
+  });
+
+  // D1: Auth enforcement
+  it('POST without auth token returns 401', async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    assert.equal(response.status, 401);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.error, 'Unauthorized');
+  });
+
+  it('POST with wrong auth token returns 401', async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wrong-token',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    assert.equal(response.status, 401);
   });
 });
