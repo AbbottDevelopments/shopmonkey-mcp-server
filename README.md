@@ -8,7 +8,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 
 - **64 tools** across 11 resource groups covering the Shopmonkey API
 - **Dual transport** — stdio for local/desktop use, Streamable HTTP for cloud deployment
-- Bearer token authentication via Shopmonkey API key
+- Shopmonkey API key authentication (Bearer token to Shopmonkey REST API)
 - Automatic retry with exponential backoff on rate limits (429) and server errors (5xx)
 - Request concurrency control (max 5 simultaneous API calls)
 - 30-second request timeout per call
@@ -105,7 +105,7 @@ For cloud deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 | `list_vehicles_for_customer` | List all vehicles for a specific customer |
 | `lookup_vehicle_by_vin` | Look up a vehicle by VIN number |
 | `lookup_vehicle_by_plate` | Look up a vehicle by license plate and region |
-| `list_vehicle_owners` | List ownership history for a vehicle |
+| `list_vehicle_owners` | List owners associated with a vehicle |
 | `get_vehicle` | Get full vehicle details |
 | `create_vehicle` | Add a vehicle (optionally linked to a customer) |
 | `update_vehicle` | Update vehicle data |
@@ -264,8 +264,10 @@ Deploy `dist/http.js` to Railway or Render with `SHOPMONKEY_API_KEY` and `MCP_AU
 | `SHOPMONKEY_API_KEY` | Yes | — | Shopmonkey API key (Settings > Integration > API Keys) |
 | `SHOPMONKEY_BASE_URL` | No | `https://api.shopmonkey.cloud/v3` | API base URL |
 | `SHOPMONKEY_LOCATION_ID` | No | — | Scope all queries to one location (multi-location shops) |
-| `MCP_AUTH_TOKEN` | No | — | Bearer token for HTTP transport authentication |
+| `MCP_AUTH_TOKEN` | Cloud: Yes | — | Bearer token for HTTP transport authentication. **Required for cloud deployment** — omitting it makes the endpoint public. |
 | `PORT` | No | `3000` | HTTP transport listening port |
+
+The server automatically loads `.env` via [dotenv](https://www.npmjs.com/package/dotenv) if present. You can also pass variables through your shell or MCP client config.
 
 ## Development
 
@@ -277,7 +279,7 @@ npm run start:http   # Start HTTP server
 npm test             # Run test suite (requires build first)
 ```
 
-The test suite includes 174 tests across 9 test files covering mock API behavior, MCP protocol compliance, error paths, and transport validation.
+The test suite includes 186 tests across 9 test files covering mock API behavior, MCP protocol compliance, error paths, and transport validation.
 
 ## Error Handling
 

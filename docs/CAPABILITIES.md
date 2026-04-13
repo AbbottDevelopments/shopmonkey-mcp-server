@@ -44,7 +44,7 @@ API reference: [Customer resources](https://shopmonkey.dev/resources/customer)
 | `list_vehicles_for_customer` | List all vehicles belonging to a specific customer | Section 1 — see a customer's fleet |
 | `lookup_vehicle_by_vin` | Look up a vehicle by VIN number | Section 1 — instant VIN decode in chat |
 | `lookup_vehicle_by_plate` | Look up a vehicle by license plate and region | Section 1 — plate lookup for check-in |
-| `list_vehicle_owners` | List ownership history for a vehicle | Section 1 — ownership chain for used vehicles |
+| `list_vehicle_owners` | List owners associated with a vehicle | Section 1 — ownership chain for used vehicles |
 | `get_vehicle` | Get full vehicle details | Section 1 — review vehicle specs and history |
 | `create_vehicle` | Add a vehicle (optionally linked to customer) | Section 1 — register new vehicles |
 | `update_vehicle` | Update vehicle data (year, make, model, etc.) | Section 1 — correct vehicle records |

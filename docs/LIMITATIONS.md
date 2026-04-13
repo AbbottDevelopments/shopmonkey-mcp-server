@@ -73,6 +73,6 @@ The following API endpoints exist in the Shopmonkey documentation but their requ
 These are not limitations but important conventions to be aware of:
 
 - **All money values are in integer cents** — Fields use `*Cents` naming (e.g., `amountCents`, `totalCostCents`, `unitPriceCents`). Never send decimal dollar amounts. Example: $150.50 = `15050`.
-- **Updates use PUT, not PATCH** — All update operations send the full field set. Omitted fields retain their current values.
+- **Updates use PUT, not PATCH** — The server sends only the fields you provide. The API merges the update; fields not included in the request retain their current values.
 - **Order status values are PascalCase** — Valid values: `Estimate`, `RepairOrder`, `Invoice` (not snake_case).
 - **Search replaces list for some resources** — Customers and vehicles use `POST .../search` endpoints instead of `GET` list endpoints.
