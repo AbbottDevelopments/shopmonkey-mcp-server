@@ -5,7 +5,7 @@ Single-tenant deployment of the Shopmonkey MCP server on Railway with Doppler fo
 ## Prerequisites
 
 - **Node.js 18+** (for local testing before deployment)
-- **Railway account** — [railway.app](https://railway.app) (free tier works for single-tenant)
+- **Railway account** — [railway.app](https://railway.app) (Hobby plan, ~$5/month + usage)
 - **Doppler account** — [doppler.com](https://doppler.com) (free tier, 5 projects)
 - **Shopmonkey API key** — Create at Shopmonkey Settings > Integration > API Keys
 - **Railway CLI** (optional) — `npm install -g @railway/cli`
@@ -32,7 +32,7 @@ Set the required secrets:
 ```bash
 doppler secrets set SHOPMONKEY_API_KEY "your_shopmonkey_api_key_here"
 doppler secrets set MCP_AUTH_TOKEN "$(openssl rand -hex 32)"
-doppler secrets set PORT "3000"
+# Do not set PORT in Doppler — Railway injects this automatically.
 ```
 
 Optional secrets:
@@ -52,9 +52,11 @@ doppler secrets set SHOPMONKEY_BASE_URL "https://api.shopmonkey.cloud/v3"
 1. Go to [railway.app/new](https://railway.app/new)
 2. Select **"Deploy from GitHub repo"**
 3. Connect your GitHub account and select `shopmonkey-mcp-server`
-4. Railway auto-detects Node.js and runs `npm install && npm run build`
+4. Railway auto-detects Node.js and runs `npm ci && npm run build`
 
 ### Option B: Deploy via CLI
+
+> **Important:** Complete Section 4 (Configure Start Command) before running `railway up`. Without it, Railway defaults to `npm start` which runs the stdio transport — not the HTTP server.
 
 ```bash
 # Authenticate
@@ -67,7 +69,7 @@ railway init
 # Link to Railway project
 railway link
 
-# Deploy
+# Deploy (after configuring start command in Section 4)
 railway up
 ```
 
@@ -87,7 +89,7 @@ In the Railway dashboard, go to your service > **Variables** and add:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SHOPMONKEY_API_KEY` | Yes | Your Shopmonkey API key |
-| `MCP_AUTH_TOKEN` | Recommended | Bearer token for MCP HTTP endpoint authentication. Generate with `openssl rand -hex 32` |
+| `MCP_AUTH_TOKEN` | **Required for cloud** | Bearer token for MCP HTTP endpoint authentication. Generate with `openssl rand -hex 32`. **WARNING: Omitting this makes the HTTP endpoint publicly accessible.** |
 | `PORT` | No | Railway sets this automatically (default: 3000) |
 | `SHOPMONKEY_LOCATION_ID` | No | Scope queries to one location (multi-location shops) |
 | `SHOPMONKEY_BASE_URL` | No | Defaults to `https://api.shopmonkey.cloud/v3` |

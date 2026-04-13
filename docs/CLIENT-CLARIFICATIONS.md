@@ -1,6 +1,6 @@
 # Client Clarifications
 
-Discovery questions to cover during the introductory call. Answers to these questions will shape deployment configuration, tool prioritization, and the Phase 2 (GHL sync) implementation plan.
+Discovery questions to cover during the introductory call. Answers to these questions will shape deployment configuration, tool prioritization, and the Section 2 (GHL sync) implementation plan.
 
 ## Shopmonkey Account
 

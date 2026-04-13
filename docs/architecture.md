@@ -28,7 +28,7 @@ flowchart TB
 
     subgraph Core
         SRV["server.ts<br/>createServer()"]
-        REG["Tool Registry<br/>64 tools, collision-checked"]
+        REG["Tool Registry<br/>64 tools, collision-detected"]
         CLIENT["client.ts<br/>HTTP client + resilience"]
     end
 
@@ -81,7 +81,7 @@ The server supports two transports from a single codebase, sharing one tool regi
 
 1. Imports all 11 tool modules
 2. Flattens their `definitions` arrays into a master tool list
-3. Merges their `handlers` maps with collision detection
+3. Merges their `handlers` maps with collision detection (logs a warning and overwrites on duplicates)
 4. Creates an MCP `Server` instance with `ListTools` and `CallTool` request handlers
 5. Returns the server for the caller to connect to any transport
 
