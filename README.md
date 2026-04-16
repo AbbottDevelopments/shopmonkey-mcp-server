@@ -251,10 +251,9 @@ Deploy `dist/http.js` to Railway or Render with `SHOPMONKEY_API_KEY` and `MCP_AU
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture.md) | System design, dual transport, tool module pattern, client resilience |
-| [Capabilities](docs/CAPABILITIES.md) | All 64 tools mapped to client integration goals |
+| [Capabilities](docs/CAPABILITIES.md) | All 64 tools with use-case descriptions |
 | [Limitations](docs/LIMITATIONS.md) | Unsupported operations with rationale and workarounds |
 | [Deployment](docs/DEPLOYMENT.md) | Railway + Doppler single-tenant deployment guide |
-| [Client Clarifications](docs/CLIENT-CLARIFICATIONS.md) | Discovery questions for onboarding |
 | [Multi-Tenant Future](docs/MULTI-TENANT-FUTURE.md) | Future-work exploration for multi-shop deployment |
 
 ## Environment Variables
