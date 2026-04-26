@@ -5,7 +5,7 @@
     "dockerfilePath": "proxy/Dockerfile"
   },
   "deploy": {
-    "startCommand": "/mcp-auth-proxy $BACKEND_MCP_URL",
+    "startCommand": "/usr/local/bin/mcp-auth-proxy $BACKEND_MCP_URL",
     "healthcheckPath": "/.well-known/oauth-protected-resource",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
