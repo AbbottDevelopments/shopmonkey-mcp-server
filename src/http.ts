@@ -37,6 +37,19 @@ async function main(): Promise<void> {
     const mcpServer = createServer();
     await mcpServer.connect(transport);
 
+    // Per-request instances must be closed when the response ends, or every
+    // request leaks a transport and an McpServer (with its full tool registry)
+    // for the lifetime of the process. Required by the SDK whenever a server is
+    // created per request in stateless mode.
+    let closed = false;
+    const cleanup = (): void => {
+      if (closed) return;
+      closed = true;
+      void Promise.resolve(transport.close()).catch(() => {});
+      void Promise.resolve(mcpServer.close()).catch(() => {});
+    };
+    res.on('close', cleanup);
+
     try {
       await transport.handleRequest(req, res);
     } catch (err) {
