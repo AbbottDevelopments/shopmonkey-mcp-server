@@ -18,6 +18,18 @@ bugs in v1.0.0.
 
 Both must then be **closed** when the response ends. Creating them per request without closing leaks a transport and a full tool registry per request for the life of the process — an unbounded leak on a long-running deployment. `src/http.ts` closes both on response `close`.
 
+### Plaintext HTTP is intentional
+
+`src/http.ts` uses `node:http`, not `node:https`, and a SAST scan will flag it as
+cleartext transmission. That is correct as written: this process is designed to
+run behind a TLS-terminating proxy — Railway's edge, or the `mcp-auth-proxy`
+service in `proxy/` — which is where certificates live. Terminating TLS a second
+time inside the process would add nothing.
+
+The consequence is that **the server must not be exposed directly to the
+internet.** If you run it outside that arrangement, put it behind a reverse proxy
+that terminates TLS, and set `MCP_AUTH_TOKEN` so the bearer check is active.
+
 ## Unsupported Operations
 
 ### `delete_order` — Order Deletion

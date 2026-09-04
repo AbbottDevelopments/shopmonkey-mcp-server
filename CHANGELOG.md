@@ -18,6 +18,35 @@ A corrected endpoint is a PATCH if callers are unaffected and a MAJOR if it is
 not — v1.1.0 is a MINOR despite making `orderId` required on `list_services`,
 because the previous route returned 404 and no working call could break.
 
+## [1.1.1] — 2026-09-04
+
+Security patch. No tool contract changes.
+
+### Fixed
+
+- **48 known vulnerabilities in transitive dependencies** (12 high), all reached
+  through `@modelcontextprotocol/sdk`: `hono`, `fast-uri`, `path-to-regexp`,
+  `@hono/node-server`, `qs`, `ip-address` and `body-parser`. The vulnerable
+  versions were pinned by a stale lockfile rather than by the SDK — bumping the
+  SDK alone changed nothing. Relocking moved every affected package past its fix
+  version. Snyk now reports zero.
+- **Prototype pollution in the report tools.** `report_revenue_summary` and
+  `report_appointment_summary` build their breakdown maps keyed by a status field
+  taken straight from the API response, so a value of `__proto__` or
+  `constructor` reached `Object.prototype`. Both maps are now null-prototype.
+- **The HTTP transport returned raw error text to callers.** A failed request
+  answered with the exception message, which can carry internal paths, upstream
+  URLs and Shopmonkey error detail. It is now logged server-side and answered
+  with a generic message.
+
+### Changed
+
+- `@modelcontextprotocol/sdk` floor raised from `^1.12.1` to `^1.30.0`, matching
+  what was already being installed and tested against.
+- Plaintext HTTP in `src/http.ts` is documented in `docs/LIMITATIONS.md` as
+  intentional — TLS terminates at the proxy in front of it — along with the
+  condition that comes with it: do not expose this process directly.
+
 ## [1.1.0] — 2026-09-03
 
 The first release informed by people running this server against real shops.
@@ -136,5 +165,6 @@ from master in `b350588`.
 The tag has been left where it is rather than moved — it has been published since
 April, and repointing a released tag is worse than documenting it. Use `v1.1.0`.
 
+[1.1.1]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/releases/tag/v1.0.0

@@ -77,7 +77,9 @@ export const handlers: ToolHandlerMap = {
       isWithinDateRange(o.invoicedDate as string | undefined, String(args.startDate), String(args.endDate))
     );
 
-    const breakdown: Record<string, { count: number; totalCostCents: number }> = {};
+    // Null-prototype: the keys come from Shopmonkey's own status field, and a
+    // value of __proto__ or constructor would otherwise reach Object.prototype.
+    const breakdown: Record<string, { count: number; totalCostCents: number }> = Object.create(null);
     let totalCostCents = 0;
     let paidCostCents = 0;
 
@@ -129,11 +131,11 @@ export const handlers: ToolHandlerMap = {
     const locationId = args.locationId !== undefined ? String(args.locationId) : getDefaultLocationId();
     const appointments = locationId ? found.filter(a => a.locationId === locationId) : found;
 
-    const breakdown: Record<string, { count: number }> = {
-      Confirmed: { count: 0 },
-      Declined: { count: 0 },
-      NoResponse: { count: 0 },
-    };
+    // Null-prototype, as above: confirmationStatus is API-supplied.
+    const breakdown: Record<string, { count: number }> = Object.create(null);
+    breakdown.Confirmed = { count: 0 };
+    breakdown.Declined = { count: 0 };
+    breakdown.NoResponse = { count: 0 };
 
     for (const appt of appointments) {
       const status = String(appt.confirmationStatus ?? 'NoResponse');
