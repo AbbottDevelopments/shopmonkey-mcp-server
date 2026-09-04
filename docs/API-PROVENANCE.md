@@ -62,6 +62,17 @@ No flat `GET /v3/service` appears on either page, at either date. The nested
 shape was documented, plainly, before we wrote the tool. We read `orderId` as a
 query filter when the docs presented it as a path segment.
 
+There is a sharper version of this. On **2026-04-11** — two days before `92a6712`
+shipped the flat route — an endpoint reference extracted from shopmonkey.dev was
+written into this project's working notes, and it contains the line
+`GET /v3/order/:orderId/service`, along with the nested
+`fee/labor/part/subcontract/tire` sub-resources. The correct shape was not merely
+available in the public documentation; it had already been read, transcribed and
+saved by this project, and the implementation went the other way regardless.
+
+The failure was never a shortage of information. It was not consulting the
+information already gathered, and then calling the result "verified."
+
 Fixed in `2570d3a`.
 
 ### 2. Labor has never had a flat list route — our error
