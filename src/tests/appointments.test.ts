@@ -55,11 +55,28 @@ describe('list_appointments', () => {
     assert.ok(capturedRequests[0].url.includes('customerId=cust-1'));
   });
 
-  it('passes date range as query params', async () => {
+  it('routes a date-filtered query through POST /appointment/search', async () => {
     setupMock(mockSuccess([]));
     await appointments.handlers.list_appointments({ startDate: '2026-05-01T00:00:00Z', endDate: '2026-05-31T23:59:59Z' });
-    assert.ok(capturedRequests[0].url.includes('startDate='));
-    assert.ok(capturedRequests[0].url.includes('endDate='));
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.ok(capturedRequests[0].url.includes('/appointment/search'));
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.deepEqual(body.where.startDate, { gte: '2026-05-01T00:00:00Z', lte: '2026-05-31T23:59:59Z' });
+  });
+
+  it('widens bare dates to whole-day bounds in the search filter', async () => {
+    setupMock(mockSuccess([]));
+    await appointments.handlers.list_appointments({ startDate: '2026-05-01', endDate: '2026-05-31' });
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.deepEqual(body.where.startDate, { gte: '2026-05-01T00:00:00.000Z', lte: '2026-05-31T23:59:59.999Z' });
+  });
+
+  it('still uses the flat list when no dates are given', async () => {
+    setupMock(mockSuccess([]));
+    await appointments.handlers.list_appointments({ customerId: 'cus-1' });
+    assert.equal(capturedRequests[0].method, 'GET');
+    assert.ok(capturedRequests[0].url.includes('/appointment'));
+    assert.ok(!capturedRequests[0].url.includes('/search'));
   });
 
   it('passes limit and skip for pagination', async () => {
