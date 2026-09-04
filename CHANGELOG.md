@@ -124,10 +124,17 @@ support.
 Built from the published Shopmonkey documentation without access to an API key —
 see [docs/API-PROVENANCE.md](docs/API-PROVENANCE.md).
 
-Note that the `v1.0.0` tag points at `7f46463` and predates seven commits that
-landed on master afterwards, including the fix for `StreamableHTTPServerTransport`
-being unusable after its first request in stateless mode. Anyone who installed
-from the tag rather than from master has a broken HTTP transport.
+⚠ The `v1.0.0` tag does not point at any commit on `master`. It resolves to
+`2f96973`, which sits on an orphaned lineage left behind by a history rewrite —
+`master` carries a twin of that commit (`7f46463`) with the same message and a
+different hash. Checking out the tag therefore gets you code that diverged before
+the nine commits that followed on master, including the fix for
+`StreamableHTTPServerTransport` being unusable after its first request in
+stateless mode. It also still contains `docs/CLIENT-CLARIFICATIONS.md`, removed
+from master in `b350588`.
+
+The tag has been left where it is rather than moved — it has been published since
+April, and repointing a released tag is worse than documenting it. Use `v1.1.0`.
 
 [1.1.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/releases/tag/v1.0.0
