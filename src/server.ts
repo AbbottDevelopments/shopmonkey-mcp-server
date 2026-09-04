@@ -19,6 +19,7 @@ import * as services from './tools/services.js';
 import * as workflow from './tools/workflow.js';
 import * as webhooks from './tools/webhooks.js';
 import * as reports from './tools/reports.js';
+import * as labels from './tools/labels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,6 +37,7 @@ const toolModules = [
   workflow,
   webhooks,
   reports,
+  labels,
 ];
 
 const allDefinitions = toolModules.flatMap(m => m.definitions);

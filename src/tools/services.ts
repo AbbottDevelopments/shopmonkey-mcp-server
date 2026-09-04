@@ -10,15 +10,30 @@ export const definitions: Tool[] = [
   // ── Existing tools ────────────────────────────────────────────────────────
   {
     name: 'list_services',
-    description: 'List services on work orders in Shopmonkey.',
+    description: 'List the services on a work order. Shopmonkey nests services under their order — there is no flat service list — so orderId is required.',
     inputSchema: {
       type: 'object' as const,
       properties: {
-        orderId: { type: 'string', description: 'Filter services by work order ID' },
-        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
+        orderId: { type: 'string', description: 'The work order ID to list services for' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
+      required: ['orderId'],
+    },
+  },
+  {
+    name: 'add_service_to_order',
+    description: 'Add a service to a work order. Pass fromCannedServiceId to copy an existing canned service template (its labor, parts, fees) onto the order in one call, or pass name/note/pricing to create a custom one-off service instead.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        orderId: { type: 'string', description: 'The work order ID to add the service to' },
+        fromCannedServiceId: { type: 'string', description: 'ID of a canned service template to copy onto the order (labor/parts/fees included)' },
+        name: { type: 'string', description: 'Service name (required if fromCannedServiceId is not given)' },
+        note: { type: 'string', description: 'Additional notes for the service' },
+        pricing: { type: 'string', enum: ['FixedPrice', 'LineItem'], description: 'Pricing model for a custom service' },
+      },
+      required: ['orderId'],
     },
   },
   {
@@ -149,12 +164,11 @@ export const definitions: Tool[] = [
       properties: {
         cannedServiceId: { type: 'string', description: 'The canned service ID to add labor to' },
         name: { type: 'string', description: 'Labor name' },
-        description: { type: 'string', description: 'Labor description' },
-        quantity: { type: 'number', description: 'Hours or quantity' },
-        unitCostCents: { type: 'number', description: 'Unit cost in integer cents' },
-        unitPriceCents: { type: 'number', description: 'Unit price in integer cents' },
-        taxableValueType: { type: 'string', description: 'Taxable value type' },
-        notes: { type: 'string', description: 'Additional notes' },
+        hours: { type: 'number', description: 'Labor hours (e.g. 2.5)' },
+        rateCents: { type: 'number', description: 'Billed labor rate per hour, in integer cents' },
+        costRateCents: { type: 'number', description: 'Internal cost rate per hour, in integer cents' },
+        note: { type: 'string', description: 'Additional notes' },
+        taxable: { type: 'boolean', description: 'Whether this labor line is taxable' },
       },
       required: ['cannedServiceId'],
     },
@@ -168,12 +182,11 @@ export const definitions: Tool[] = [
         cannedServiceId: { type: 'string', description: 'The canned service ID' },
         itemId: { type: 'string', description: 'The labor line item ID to update' },
         name: { type: 'string', description: 'Updated labor name' },
-        description: { type: 'string', description: 'Updated description' },
-        quantity: { type: 'number', description: 'Updated hours or quantity' },
-        unitCostCents: { type: 'number', description: 'Updated unit cost in integer cents' },
-        unitPriceCents: { type: 'number', description: 'Updated unit price in integer cents' },
-        taxableValueType: { type: 'string', description: 'Taxable value type' },
-        notes: { type: 'string', description: 'Additional notes' },
+        hours: { type: 'number', description: 'Updated labor hours' },
+        rateCents: { type: 'number', description: 'Updated billed rate per hour, in integer cents' },
+        costRateCents: { type: 'number', description: 'Updated internal cost rate per hour, in integer cents' },
+        note: { type: 'string', description: 'Additional notes' },
+        taxable: { type: 'boolean', description: 'Whether this labor line is taxable' },
       },
       required: ['cannedServiceId', 'itemId'],
     },
@@ -199,12 +212,12 @@ export const definitions: Tool[] = [
       properties: {
         cannedServiceId: { type: 'string', description: 'The canned service ID to add the part to' },
         name: { type: 'string', description: 'Part name' },
-        description: { type: 'string', description: 'Part description' },
         quantity: { type: 'number', description: 'Quantity of parts' },
-        unitCostCents: { type: 'number', description: 'Unit cost in integer cents' },
-        unitPriceCents: { type: 'number', description: 'Unit price in integer cents' },
-        taxableValueType: { type: 'string', description: 'Taxable value type' },
-        notes: { type: 'string', description: 'Additional notes' },
+        retailCostCents: { type: 'number', description: 'Price charged to the customer, per unit, in integer cents' },
+        wholesaleCostCents: { type: 'number', description: 'Cost paid to the vendor, per unit, in integer cents' },
+        partNumber: { type: 'string', description: 'Vendor part number' },
+        note: { type: 'string', description: 'Additional notes' },
+        taxable: { type: 'boolean', description: 'Whether this part line is taxable' },
       },
       required: ['cannedServiceId'],
     },
@@ -218,11 +231,12 @@ export const definitions: Tool[] = [
         cannedServiceId: { type: 'string', description: 'The canned service ID' },
         itemId: { type: 'string', description: 'The part line item ID to update' },
         name: { type: 'string', description: 'Updated part name' },
-        description: { type: 'string', description: 'Updated description' },
         quantity: { type: 'number', description: 'Updated quantity' },
-        unitCostCents: { type: 'number', description: 'Updated unit cost in integer cents' },
-        unitPriceCents: { type: 'number', description: 'Updated unit price in integer cents' },
-        taxableValueType: { type: 'string', description: 'Taxable value type' },
+        retailCostCents: { type: 'number', description: 'Updated customer price, per unit, in integer cents' },
+        wholesaleCostCents: { type: 'number', description: 'Updated vendor cost, per unit, in integer cents' },
+        partNumber: { type: 'string', description: 'Vendor part number' },
+        note: { type: 'string', description: 'Additional notes' },
+        taxable: { type: 'boolean', description: 'Whether this part line is taxable' },
         notes: { type: 'string', description: 'Additional notes' },
       },
       required: ['cannedServiceId', 'itemId'],
@@ -359,6 +373,19 @@ export const definitions: Tool[] = [
 
 const CANNED_FIELDS = ['name', 'description', 'pricing', 'fixedPriceCents', 'bookable', 'recommended', 'lumpSum', 'express', 'locationId'];
 const CANNED_UPDATE_FIELDS = ['name', 'description', 'pricing', 'fixedPriceCents', 'bookable', 'recommended', 'lumpSum', 'express'];
+// Shopmonkey's line-item schemas differ per type. A single shared allowlist sent
+// field names that Labor and Part do not have; the API ignores unknown body keys,
+// applies its defaults and still returns 200, so hours and prices were silently
+// dropped on write and corrections silently no-opped. Reported against a live
+// account in issue #1 by audioedgeaz, where a 46-hour estimate worth roughly
+// nineteen thousand dollars persisted as about two thousand.
+const LABOR_FIELDS = ['name', 'hours', 'rateCents', 'costRateCents', 'note', 'taxable'];
+const PART_FIELDS = ['name', 'quantity', 'retailCostCents', 'wholesaleCostCents', 'partNumber', 'note', 'taxable'];
+
+// Fee, subcontract and tire keep the original pass-through allowlist. They are
+// very likely affected the same way, but their schemas have not been verified
+// against a live account, and guessing is what caused this bug in the first
+// place. See docs/LIMITATIONS.md.
 const LINE_ITEM_FIELDS = ['name', 'description', 'quantity', 'unitCostCents', 'unitPriceCents', 'taxableValueType', 'notes'];
 
 function applyDefaultLocation(params: Record<string, string>): void {
@@ -368,17 +395,38 @@ function applyDefaultLocation(params: Record<string, string>): void {
   }
 }
 
+const ADD_SERVICE_FIELDS = ['fromCannedServiceId', 'name', 'note', 'pricing'];
+
 export const handlers: ToolHandlerMap = {
   // ── Existing handlers ─────────────────────────────────────────────────────
   async list_services(args) {
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+
     const params: Record<string, string> = {};
-    if (args.orderId !== undefined) params.orderId = String(args.orderId);
-    if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.skip !== undefined) params.skip = String(args.skip);
-    applyDefaultLocation(params);
 
-    const data = await shopmonkeyRequest<Service[]>('GET', '/service', undefined, params);
+    const data = await shopmonkeyRequest<Service[]>(
+      'GET',
+      `/order/${sanitizePathParam(String(args.orderId))}/service`,
+      undefined,
+      params
+    );
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  },
+
+  async add_service_to_order(args) {
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+    if (!args.fromCannedServiceId && !args.name) {
+      return { content: [{ type: 'text', text: 'Error: provide either fromCannedServiceId or name' }], isError: true };
+    }
+
+    const body = pickFields(args, ADD_SERVICE_FIELDS);
+    const data = await shopmonkeyRequest<Service[]>(
+      'POST',
+      `/order/${sanitizePathParam(String(args.orderId))}/service`,
+      [body] as unknown as Record<string, unknown>
+    );
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 
@@ -451,7 +499,7 @@ export const handlers: ToolHandlerMap = {
   // Labor
   async add_canned_service_labor(args) {
     if (!args.cannedServiceId) return { content: [{ type: 'text', text: 'Error: cannedServiceId is required' }], isError: true };
-    const body = pickFields(args, LINE_ITEM_FIELDS);
+    const body = pickFields(args, LABOR_FIELDS);
     const data = await shopmonkeyRequest<CannedServiceLabor>('POST', `/canned_service/${sanitizePathParam(String(args.cannedServiceId))}/labor`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
@@ -459,7 +507,7 @@ export const handlers: ToolHandlerMap = {
   async update_canned_service_labor(args) {
     if (!args.cannedServiceId) return { content: [{ type: 'text', text: 'Error: cannedServiceId is required' }], isError: true };
     if (!args.itemId) return { content: [{ type: 'text', text: 'Error: itemId is required' }], isError: true };
-    const body = pickFields(args, LINE_ITEM_FIELDS);
+    const body = pickFields(args, LABOR_FIELDS);
     const data = await shopmonkeyRequest<CannedServiceLabor>('PUT', `/canned_service/${sanitizePathParam(String(args.cannedServiceId))}/labor/${sanitizePathParam(String(args.itemId))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
@@ -474,7 +522,7 @@ export const handlers: ToolHandlerMap = {
   // Part
   async add_canned_service_part(args) {
     if (!args.cannedServiceId) return { content: [{ type: 'text', text: 'Error: cannedServiceId is required' }], isError: true };
-    const body = pickFields(args, LINE_ITEM_FIELDS);
+    const body = pickFields(args, PART_FIELDS);
     const data = await shopmonkeyRequest<CannedServicePart>('POST', `/canned_service/${sanitizePathParam(String(args.cannedServiceId))}/part`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
@@ -482,7 +530,7 @@ export const handlers: ToolHandlerMap = {
   async update_canned_service_part(args) {
     if (!args.cannedServiceId) return { content: [{ type: 'text', text: 'Error: cannedServiceId is required' }], isError: true };
     if (!args.itemId) return { content: [{ type: 'text', text: 'Error: itemId is required' }], isError: true };
-    const body = pickFields(args, LINE_ITEM_FIELDS);
+    const body = pickFields(args, PART_FIELDS);
     const data = await shopmonkeyRequest<CannedServicePart>('PUT', `/canned_service/${sanitizePathParam(String(args.cannedServiceId))}/part/${sanitizePathParam(String(args.itemId))}`, body);
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },

@@ -1,6 +1,16 @@
+export interface ResponseMeta {
+  /** Set by Shopmonkey list endpoints when further pages remain. */
+  hasMore?: boolean;
+  /** Total matching records, when the endpoint reports one. */
+  total?: number;
+  sums?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface ShopmonkeyResponse<T> {
   success: boolean;
   data?: T;
+  meta?: ResponseMeta;
   message?: string;
   documentation_url?: string;
   code?: string;
@@ -8,7 +18,7 @@ export interface ShopmonkeyResponse<T> {
 
 export interface PaginationParams {
   limit?: number;
-  page?: number;
+  skip?: number;
 }
 
 export interface Order {
@@ -197,5 +207,19 @@ export interface Location {
   name?: string;
   address?: string;
   phone?: string;
+  [key: string]: unknown;
+}
+
+
+export interface Label {
+  id: string;
+  name?: string;
+  color?: string;
+  entity?: string;
+  companyId?: string;
+  locationId?: string;
+  saved?: boolean;
+  createdDate?: string;
+  updatedDate?: string;
   [key: string]: unknown;
 }

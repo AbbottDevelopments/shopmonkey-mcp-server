@@ -107,13 +107,13 @@ export const handlers: ToolHandlerMap = {
 
   async search_customers_by_email(args) {
     if (!args.email) return { content: [{ type: 'text', text: 'Error: email is required' }], isError: true };
-    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/email/search', { email: args.email });
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/email/search', { emails: [{ email: String(args.email) }] });
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 
   async search_customers_by_phone(args) {
     if (!args.phoneNumber) return { content: [{ type: 'text', text: 'Error: phoneNumber is required' }], isError: true };
-    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/phone_number/search', { phoneNumber: args.phoneNumber });
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/phone_number/search', { phoneNumbers: [{ number: String(args.phoneNumber) }] });
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 

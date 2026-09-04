@@ -6,15 +6,27 @@ import type { ToolHandlerMap } from '../types/tools.js';
 export const definitions: Tool[] = [
   {
     name: 'list_labor',
-    description: 'List labor line items from Shopmonkey. Useful for tracking technician work on orders.',
+    description: 'List the labor line items on a service. Shopmonkey nests labor under order > service, so both orderId and serviceId are required — call list_services with an orderId first to get the serviceId.',
     inputSchema: {
       type: 'object' as const,
       properties: {
-        orderId: { type: 'string', description: 'Filter labor entries by work order ID' },
-        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
-        limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
-        skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
+        orderId: { type: 'string', description: 'The work order ID the service belongs to' },
+        serviceId: { type: 'string', description: 'The service ID to list labor line items for' },
       },
+      required: ['orderId', 'serviceId'],
+    },
+  },
+  {
+    name: 'assign_technician',
+    description: "Assign a technician to one or more labor line items on a work order. Use list_services (orderId) to find the serviceId, list_labor (orderId + serviceId) to find labor IDs, and list_users to find the technician's user ID.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        orderId: { type: 'string', description: 'The work order ID the labor line items belong to' },
+        laborIds: { type: 'array', items: { type: 'string' }, description: 'One or more labor line item IDs to assign the technician to' },
+        technicianId: { type: 'string', description: 'The technician/user ID to assign (from list_users)' },
+      },
+      required: ['orderId', 'laborIds', 'technicianId'],
     },
   },
   {
@@ -60,14 +72,32 @@ function applyDefaultLocation(params: Record<string, string>): void {
 
 export const handlers: ToolHandlerMap = {
   async list_labor(args) {
-    const params: Record<string, string> = {};
-    if (args.orderId !== undefined) params.orderId = String(args.orderId);
-    if (args.locationId !== undefined) params.locationId = String(args.locationId);
-    if (args.limit !== undefined) params.limit = String(args.limit);
-    if (args.skip !== undefined) params.skip = String(args.skip);
-    applyDefaultLocation(params);
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+    if (!args.serviceId) return { content: [{ type: 'text', text: 'Error: serviceId is required' }], isError: true };
 
-    const data = await shopmonkeyRequest<Labor[]>('GET', '/labor', undefined, params);
+    const data = await shopmonkeyRequest<Labor[]>(
+      'GET',
+      `/order/${sanitizePathParam(String(args.orderId))}/service/${sanitizePathParam(String(args.serviceId))}/labor`
+    );
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  },
+
+  async assign_technician(args) {
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+    if (!args.technicianId) return { content: [{ type: 'text', text: 'Error: technicianId is required' }], isError: true };
+
+    const laborIds = Array.isArray(args.laborIds) ? args.laborIds.map(String) : [];
+    if (laborIds.length === 0) {
+      return { content: [{ type: 'text', text: 'Error: laborIds must be a non-empty array of labor line item IDs' }], isError: true };
+    }
+
+    // Shopmonkey exposes technician assignment as a bulk update against the
+    // order, not as a write to an individual labor line item.
+    const data = await shopmonkeyRequest<Labor>(
+      'PUT',
+      `/order/${sanitizePathParam(String(args.orderId))}/labor_bulk`,
+      { data: { technicianId: args.technicianId }, ids: laborIds }
+    );
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 

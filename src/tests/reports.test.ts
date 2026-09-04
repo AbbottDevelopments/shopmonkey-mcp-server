@@ -36,9 +36,9 @@ describe('Reports — report_revenue_summary', () => {
 
   it('aggregates totals and breakdown from orders (AC-Report.1)', async () => {
     setupMock([
-      { id: 'ord-1', status: 'Invoice', totalCostCents: 10000, paid: true },
-      { id: 'ord-2', status: 'Invoice', totalCostCents: 5000, paid: false },
-      { id: 'ord-3', status: 'Estimate', totalCostCents: 2500, paid: false },
+      { id: 'ord-1', status: 'Invoice', totalCostCents: 10000, paid: true, invoicedDate: '2026-04-02T10:00:00Z' },
+      { id: 'ord-2', status: 'Invoice', totalCostCents: 5000, paid: false, invoicedDate: '2026-04-05T10:00:00Z' },
+      { id: 'ord-3', status: 'Estimate', totalCostCents: 2500, paid: false, invoicedDate: '2026-04-11T23:00:00Z' },
     ]);
 
     const result = await reports.handlers.report_revenue_summary({
@@ -80,12 +80,39 @@ describe('Reports — report_revenue_summary', () => {
     assert.ok(result.content[0].text.includes('endDate is required'));
   });
 
-  it('sends GET /order with date params', async () => {
+  it('pages GET /order without sending date params the API ignores', async () => {
     setupMock([]);
     await reports.handlers.report_revenue_summary({ startDate: '2026-04-01', endDate: '2026-04-11' });
-    assert.ok(capturedRequests[0].url.includes('/order'));
-    assert.ok(capturedRequests[0].url.includes('startDate=2026-04-01'));
-    assert.ok(capturedRequests[0].url.includes('endDate=2026-04-11'));
+    const url = new URL(capturedRequests[0].url);
+    assert.ok(url.pathname.endsWith('/order'));
+    assert.equal(url.searchParams.get('startDate'), null);
+    assert.equal(url.searchParams.get('endDate'), null);
+    assert.equal(url.searchParams.get('skip'), '0');
+    assert.ok(url.searchParams.get('limit'));
+  });
+
+  it('counts only orders invoiced inside the range', async () => {
+    setupMock([
+      { id: 'in-1', status: 'Invoice', totalCostCents: 10000, paid: true, invoicedDate: '2026-04-05T10:00:00Z' },
+      { id: 'early', status: 'Invoice', totalCostCents: 9999, paid: true, invoicedDate: '2026-03-31T10:00:00Z' },
+      { id: 'late', status: 'Invoice', totalCostCents: 8888, paid: true, invoicedDate: '2026-04-12T10:00:00Z' },
+      { id: 'never', status: 'Estimate', totalCostCents: 7777, paid: false },
+    ]);
+
+    const result = await reports.handlers.report_revenue_summary({ startDate: '2026-04-01', endDate: '2026-04-11' });
+    const data = JSON.parse(result.content[0].text);
+
+    assert.equal(data.count, 1, 'only the in-range invoiced order counts');
+    assert.equal(data.totals.totalCostCents, 10000);
+    assert.equal(data.scannedOrders, 4);
+    assert.equal(data.truncated, false);
+  });
+
+  it('includes an order invoiced on the final day of the range', async () => {
+    // A bare endDate must cover the whole day, not stop at midnight.
+    setupMock([{ id: 'edge', status: 'Invoice', totalCostCents: 500, paid: true, invoicedDate: '2026-04-11T18:30:00Z' }]);
+    const result = await reports.handlers.report_revenue_summary({ startDate: '2026-04-01', endDate: '2026-04-11' });
+    assert.equal(JSON.parse(result.content[0].text).count, 1);
   });
 });
 

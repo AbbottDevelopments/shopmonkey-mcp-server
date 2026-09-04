@@ -1,5 +1,5 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId } from '../client.js';
+import { shopmonkeyRequest, sanitizePathParam, getDefaultLocationId, toDateRangeBoundary } from '../client.js';
 import type { Appointment } from '../types/shopmonkey.js';
 import type { ToolHandlerMap } from '../types/tools.js';
 import { pickFields } from '../types/tools.js';
@@ -7,7 +7,7 @@ import { pickFields } from '../types/tools.js';
 export const definitions: Tool[] = [
   {
     name: 'list_appointments',
-    description: 'List appointments from Shopmonkey. Supports filtering and pagination.',
+    description: 'List appointments from Shopmonkey. Supports filtering and pagination. Date-filtered queries are routed through the /appointment/search endpoint, which applies the range server-side.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -74,11 +74,29 @@ function applyDefaultLocation(params: Record<string, string>): void {
 
 export const handlers: ToolHandlerMap = {
   async list_appointments(args) {
+    const limit = args.limit !== undefined ? Number(args.limit) : 25;
+
+    // The flat GET /appointment list ignores date params, so a date-filtered
+    // query has to go through /appointment/search, whose structured `where`
+    // filter is applied server-side.
+    if (args.startDate !== undefined || args.endDate !== undefined) {
+      const range: Record<string, string> = {};
+      if (args.startDate !== undefined) range.gte = toDateRangeBoundary(String(args.startDate), 'start');
+      if (args.endDate !== undefined) range.lte = toDateRangeBoundary(String(args.endDate), 'end');
+
+      const where: Record<string, unknown> = { startDate: range };
+      if (args.customerId !== undefined) where.customerId = String(args.customerId);
+
+      const locationId = args.locationId !== undefined ? String(args.locationId) : getDefaultLocationId();
+      if (locationId) where.locationId = locationId;
+
+      const found = await shopmonkeyRequest<Appointment[]>('POST', '/appointment/search', { where, limit });
+      return { content: [{ type: 'text', text: JSON.stringify(found, null, 2) }] };
+    }
+
     const params: Record<string, string> = {};
     if (args.customerId !== undefined) params.customerId = String(args.customerId);
     if (args.locationId !== undefined) params.locationId = String(args.locationId);
-    if (args.startDate !== undefined) params.startDate = String(args.startDate);
-    if (args.endDate !== undefined) params.endDate = String(args.endDate);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.skip !== undefined) params.skip = String(args.skip);
     applyDefaultLocation(params);

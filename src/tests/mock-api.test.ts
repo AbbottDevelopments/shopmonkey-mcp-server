@@ -141,7 +141,7 @@ describe('Mock API — Customers', () => {
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/email/search'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.email, 'john@example.com');
+    assert.deepEqual(body, { emails: [{ email: 'john@example.com' }] });
     assert.ok(!result.isError);
   });
 
@@ -151,7 +151,7 @@ describe('Mock API — Customers', () => {
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/phone_number/search'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.phoneNumber, '555-0100');
+    assert.deepEqual(body, { phoneNumbers: [{ number: '555-0100' }] });
     assert.ok(!result.isError);
   });
 
@@ -297,10 +297,10 @@ describe('Mock API — Labor & Users', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('list_labor filters by orderId', async () => {
+  it('list_labor uses the nested order > service > labor route', async () => {
     setupMock(mockSuccess([{ id: 'lab-1' }]));
-    await labor.handlers.list_labor({ orderId: 'ord-1' });
-    assert.ok(capturedRequests[0].url.includes('orderId=ord-1'));
+    await labor.handlers.list_labor({ orderId: 'ord-1', serviceId: 'svc-1' });
+    assert.ok(capturedRequests[0].url.includes('/order/ord-1/service/svc-1/labor'));
   });
 
   it('list_timeclock filters by userId and date range', async () => {
@@ -321,10 +321,11 @@ describe('Mock API — Services', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('list_services filters by orderId', async () => {
+  it('list_services uses the nested order > service route', async () => {
     setupMock(mockSuccess([{ id: 'svc-1' }]));
     await services.handlers.list_services({ orderId: 'ord-1' });
-    assert.ok(capturedRequests[0].url.includes('orderId=ord-1'));
+    assert.ok(capturedRequests[0].url.includes('/order/ord-1/service'));
+    assert.ok(!capturedRequests[0].url.includes('orderId=ord-1'));
   });
 
   it('list_canned_services sends GET /canned_service', async () => {
