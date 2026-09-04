@@ -107,7 +107,7 @@ export const handlers: ToolHandlerMap = {
 
   async search_customers_by_email(args) {
     if (!args.email) return { content: [{ type: 'text', text: 'Error: email is required' }], isError: true };
-    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/email/search', { email: args.email });
+    const data = await shopmonkeyRequest<Customer[]>('POST', '/customer/email/search', { emails: [{ email: String(args.email) }] });
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 

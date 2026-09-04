@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The first release informed by people running this server against real shops.
 v1.0.0 was written entirely from Shopmonkey's published documentation without an
 API key, and several tools called endpoints that do not exist. Most of this
-release is correcting that, from two public forks.
+release is correcting that, from two public forks and one live-account bug report.
 
 Full credit in [CREDITS.md](CREDITS.md). Why the errors happened, and which were
 ours versus changes on Shopmonkey's side, in [docs/API-PROVENANCE.md](docs/API-PROVENANCE.md).
@@ -38,6 +38,18 @@ ours versus changes on Shopmonkey's side, in [docs/API-PROVENANCE.md](docs/API-P
   filters on `invoicedDate`, not `createdDate` — an order opened in one month
   and invoiced in the next belongs to the month it was invoiced, and orders
   never invoiced are excluded.
+- **Canned-service line items were written with the wrong field names.** One
+  shared allowlist was reused for all five line-item types. Shopmonkey ignores
+  unknown body keys, applies its defaults and returns 200, so labor persisted at
+  `hours: 1` and parts at `retailCostCents: 0` regardless of what was passed, and
+  `update_*` corrections silently no-opped. Labor now sends `hours`/`rateCents`/
+  `costRateCents`/`note` and parts `quantity`/`retailCostCents`/
+  `wholesaleCostCents`/`note`. Reported with a live reproduction in
+  [#1](https://github.com/AbbottDevelopments/shopmonkey-mcp-server/issues/1).
+  Fee, subcontract and tire are deliberately left on the old allowlist — see
+  *Known gaps*.
+- **`search_customers_by_email` sent the wrong body shape**, the same bug as the
+  phone variant. The endpoint takes `{ emails: [{ email }] }`.
 - **The HTTP transport leaked on every request.** In stateless mode a fresh
   transport and `McpServer` are created per request; neither was closed, leaking
   a full tool registry per request for the life of the process.
@@ -81,6 +93,13 @@ ours versus changes on Shopmonkey's side, in [docs/API-PROVENANCE.md](docs/API-P
 - Still no API key. `GET /order/:orderId/service/:serviceId/labor` and
   `PUT /label/:labelId/assign` are field-reported but undocumented; `create_order`
   and several body schemas remain unexecuted. See `docs/LIMITATIONS.md`.
+- `add_canned_service_fee`, `_subcontract` and `_tire` are still on the old
+  shared field allowlist and are very likely wrong in the same way labor and
+  parts were. Their schemas could not be verified, and guessing field names is
+  what caused that bug, so they were left alone rather than changed on a hunch.
+- `search_customers` ignores its `query` argument and `list_orders` ignores its
+  `status` filter, both confirmed against a live account. Not fixed here — the
+  correct request shape is unknown without an account to test against.
 - Whether `GET /timeclock` honours date filters is untested.
 
 ## [1.0.0] — 2026-04-26

@@ -94,13 +94,13 @@ describe('search_customers_by_email', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('sends POST /customer/email/search with email in body', async () => {
+  it('sends POST /customer/email/search with the emails object body', async () => {
     setupMock(mockSuccess([]));
     const result = await customers.handlers.search_customers_by_email({ email: 'test@example.com' });
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/email/search'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.email, 'test@example.com');
+    assert.deepEqual(body, { emails: [{ email: 'test@example.com' }] });
     assert.ok(!result.isError);
   });
 

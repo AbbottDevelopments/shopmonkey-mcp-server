@@ -46,6 +46,24 @@ Carried in `adacf3a`, `fdf3b67` and `626c2fa`. The pagination here follows his
 approach but terminates on the API's documented `meta.hasMore` signal rather
 than a fixed page budget.
 
+## [audioedgeaz](https://github.com/audioedgeaz) — [issue #1](https://github.com/AbbottDevelopments/shopmonkey-mcp-server/issues/1)
+
+Filed the single most valuable bug report this project has had: a live-account
+investigation showing that Shopmonkey accepts unknown body fields, ignores them,
+applies defaults and still returns 200 — so every canned-service line item was
+being written with the wrong field names and persisting at default values while
+every call reported success. Included the correct per-type schemas, a
+reproduction, and the reason the test suite could not have caught it (it asserted
+the body the server built, never what Shopmonkey stored).
+
+That report also independently confirmed, against the live API, that
+`GET /v3/labor` and `GET /v3/service` return 404 — corroborating the nested-route
+finding above — and identified the `phoneNumbers`/`emails` body shapes and two
+filters that are accepted and ignored.
+
+Carried in the canned-service line-item fix in v1.1.0. The still-unfixed items
+from that report are tracked in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+
 ## Reporting something
 
 If you are running this against a real shop and find an endpoint that behaves

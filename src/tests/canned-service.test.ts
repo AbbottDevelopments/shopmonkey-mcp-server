@@ -152,22 +152,70 @@ describe('Canned Service — Fee line items', () => {
   });
 });
 
+describe('Canned Service — Labor line items', () => {
+  beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
+  afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
+
+  it('add_canned_service_labor sends the Labor schema', async () => {
+    setupMock(mockSuccess({ id: 'labor-line-1' }));
+    const result = await services.handlers.add_canned_service_labor({
+      cannedServiceId: 'cs-1', name: 'Fab', hours: 10, rateCents: 20000, costRateCents: 9000,
+    });
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.ok(capturedRequests[0].url.includes('/canned_service/cs-1/labor'));
+    assert.deepEqual(JSON.parse(capturedRequests[0].body!), {
+      name: 'Fab', hours: 10, rateCents: 20000, costRateCents: 9000,
+    });
+    assert.ok(!result.isError);
+  });
+
+  it('add_canned_service_labor drops fields the Labor schema does not have', async () => {
+    // quantity/unitPriceCents are not Labor fields. Shopmonkey would accept them,
+    // ignore them, default hours to 1 and return 200. Issue #1.
+    setupMock(mockSuccess({ id: 'labor-line-1' }));
+    await services.handlers.add_canned_service_labor({
+      cannedServiceId: 'cs-1', name: 'Fab', quantity: 10, unitPriceCents: 20000, description: 'x',
+    });
+    assert.deepEqual(JSON.parse(capturedRequests[0].body!), { name: 'Fab' });
+  });
+
+  it('update_canned_service_labor sends PUT with the Labor schema', async () => {
+    setupMock(mockSuccess({ id: 'labor-line-1' }));
+    const result = await services.handlers.update_canned_service_labor({
+      cannedServiceId: 'cs-1', itemId: 'labor-line-1', hours: 4.5,
+    });
+    assert.equal(capturedRequests[0].method, 'PUT');
+    assert.ok(capturedRequests[0].url.includes('/canned_service/cs-1/labor/labor-line-1'));
+    assert.deepEqual(JSON.parse(capturedRequests[0].body!), { hours: 4.5 });
+    assert.ok(!result.isError);
+  });
+});
+
 describe('Canned Service — Part line items', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('add_canned_service_part sends POST /canned_service/:id/part with body', async () => {
+  it('add_canned_service_part sends POST /canned_service/:id/part with the Part schema', async () => {
     setupMock(mockSuccess({ id: 'part-line-1' }));
     const result = await services.handlers.add_canned_service_part({
-      cannedServiceId: 'cs-1', name: 'Oil Filter', quantity: 1, unitPriceCents: 1299,
+      cannedServiceId: 'cs-1', name: 'Oil Filter', quantity: 1, retailCostCents: 1299, wholesaleCostCents: 700,
     });
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/canned_service/cs-1/part'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.name, 'Oil Filter');
-    assert.equal(body.quantity, 1);
-    assert.equal(body.unitPriceCents, 1299);
+    assert.deepEqual(body, { name: 'Oil Filter', quantity: 1, retailCostCents: 1299, wholesaleCostCents: 700 });
     assert.ok(!result.isError);
+  });
+
+  it('add_canned_service_part drops fields the Part schema does not have', async () => {
+    // The API ignores unknown keys and applies defaults while returning 200, so
+    // sending unitPriceCents here silently persisted a zero price. Issue #1.
+    setupMock(mockSuccess({ id: 'part-line-1' }));
+    await services.handlers.add_canned_service_part({
+      cannedServiceId: 'cs-1', name: 'Oil Filter', unitPriceCents: 1299, unitCostCents: 700, description: 'x',
+    });
+    const body = JSON.parse(capturedRequests[0].body!);
+    assert.deepEqual(body, { name: 'Oil Filter' });
   });
 
   it('update_canned_service_part sends PUT', async () => {

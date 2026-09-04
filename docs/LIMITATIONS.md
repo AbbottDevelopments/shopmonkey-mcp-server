@@ -110,6 +110,47 @@ returns plausible, wrong data, which is what makes them worth writing down.
 **Found by:** [Andy Kimberle](https://github.com/AndyKimberle/shopmonkey-mcp-server), in production
 **Workaround, as implemented:** `fetchAllRecords` pages to exhaustion rather than taking one batch, de-duplicates by `id` (the same record can appear on two pages), and prefers the documented `meta.hasMore` signal to decide when to stop.
 
+### Unknown body fields are accepted, ignored, and answered with 200
+
+**Status:** Fixed for labor and parts; unverified elsewhere
+**Behaviour:** Shopmonkey does not reject unrecognised keys in a request body. It
+drops them, applies its own defaults for the fields you meant to set, and returns
+HTTP 200. A write that sets nothing is indistinguishable from a write that worked.
+**Found by:** [audioedgeaz](https://github.com/AbbottDevelopments/shopmonkey-mcp-server/issues/1), against a live account
+
+This is the most dangerous behaviour on this page, because it corrupts data
+rather than failing. Through v1.0.0 every canned-service line item was written
+through one shared field allowlist, so labor persisted at `hours: 1` and parts at
+`retailCostCents: 0` no matter what was passed, and `update_*` corrections
+silently no-opped. A 46-hour estimate worth roughly nineteen thousand dollars was
+written into a live customer order as about two thousand, with every call
+reporting success.
+
+The schemas differ per line-item type:
+
+| Type | Correct fields |
+|---|---|
+| Labor | `hours`, `rateCents`, `costRateCents`, `note` |
+| Part | `quantity`, `retailCostCents`, `wholesaleCostCents`, `note` |
+
+⚠ **`add_canned_service_fee`, `_subcontract` and `_tire` are still on the old
+shared allowlist** and are very likely wrong in the same way. Their schemas have
+not been verified against a live account, and inventing field names is what
+caused this bug, so they have been left alone rather than guessed at. Treat
+writes through those three tools as unverified.
+
+### Filters that are accepted and ignored
+
+Reported against a live account by
+[audioedgeaz](https://github.com/AbbottDevelopments/shopmonkey-mcp-server/issues/1),
+alongside the date-filter behaviour above. **Not yet fixed** — both need a live
+account to fix safely, since the correct request shape is unknown:
+
+| Tool | Behaviour |
+|---|---|
+| `search_customers` | The `query` argument is ignored; returns arbitrary records in id order. Returning *something* rather than an error is worse than failing — a caller can conclude a customer does not exist and create a duplicate. |
+| `list_orders` | The `status` filter is ignored; asking for `Invoice` can return `Estimate` records. |
+
 ### Routes in use that the documentation does not list
 
 Two routes this server calls are not in the published documentation. Both are
