@@ -102,7 +102,7 @@ ours versus changes on Shopmonkey's side, in [docs/API-PROVENANCE.md](docs/API-P
   correct request shape is unknown without an account to test against.
 - Whether `GET /timeclock` honours date filters is untested.
 
-## [1.0.0] — 2026-04-26
+## [1.0.0] — 2026-04-13
 
 Initial release. 64 tools across 11 resource groups, dual stdio and Streamable
 HTTP transports, retry with backoff, concurrency limiting, and multi-location
@@ -110,6 +110,11 @@ support.
 
 Built from the published Shopmonkey documentation without access to an API key —
 see [docs/API-PROVENANCE.md](docs/API-PROVENANCE.md).
+
+Note that the `v1.0.0` tag points at `7f46463` and predates seven commits that
+landed on master afterwards, including the fix for `StreamableHTTPServerTransport`
+being unusable after its first request in stateless mode. Anyone who installed
+from the tag rather than from master has a broken HTTP transport.
 
 [1.1.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/releases/tag/v1.0.0
