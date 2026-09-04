@@ -10,15 +10,30 @@ export const definitions: Tool[] = [
   // ── Existing tools ────────────────────────────────────────────────────────
   {
     name: 'list_services',
-    description: 'List services on work orders in Shopmonkey.',
+    description: 'List the services on a work order. Shopmonkey nests services under their order — there is no flat service list — so orderId is required.',
     inputSchema: {
       type: 'object' as const,
       properties: {
-        orderId: { type: 'string', description: 'Filter services by work order ID' },
-        locationId: { type: 'string', description: 'Filter by location ID. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
+        orderId: { type: 'string', description: 'The work order ID to list services for' },
         limit: { type: 'number', description: 'Maximum number of results to return (default: 25)' },
         skip: { type: 'number', description: 'Number of records to skip for pagination (default: 0)' },
       },
+      required: ['orderId'],
+    },
+  },
+  {
+    name: 'add_service_to_order',
+    description: 'Add a service to a work order. Pass fromCannedServiceId to copy an existing canned service template (its labor, parts, fees) onto the order in one call, or pass name/note/pricing to create a custom one-off service instead.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        orderId: { type: 'string', description: 'The work order ID to add the service to' },
+        fromCannedServiceId: { type: 'string', description: 'ID of a canned service template to copy onto the order (labor/parts/fees included)' },
+        name: { type: 'string', description: 'Service name (required if fromCannedServiceId is not given)' },
+        note: { type: 'string', description: 'Additional notes for the service' },
+        pricing: { type: 'string', enum: ['FixedPrice', 'LineItem'], description: 'Pricing model for a custom service' },
+      },
+      required: ['orderId'],
     },
   },
   {
@@ -368,17 +383,38 @@ function applyDefaultLocation(params: Record<string, string>): void {
   }
 }
 
+const ADD_SERVICE_FIELDS = ['fromCannedServiceId', 'name', 'note', 'pricing'];
+
 export const handlers: ToolHandlerMap = {
   // ── Existing handlers ─────────────────────────────────────────────────────
   async list_services(args) {
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+
     const params: Record<string, string> = {};
-    if (args.orderId !== undefined) params.orderId = String(args.orderId);
-    if (args.locationId !== undefined) params.locationId = String(args.locationId);
     if (args.limit !== undefined) params.limit = String(args.limit);
     if (args.skip !== undefined) params.skip = String(args.skip);
-    applyDefaultLocation(params);
 
-    const data = await shopmonkeyRequest<Service[]>('GET', '/service', undefined, params);
+    const data = await shopmonkeyRequest<Service[]>(
+      'GET',
+      `/order/${sanitizePathParam(String(args.orderId))}/service`,
+      undefined,
+      params
+    );
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  },
+
+  async add_service_to_order(args) {
+    if (!args.orderId) return { content: [{ type: 'text', text: 'Error: orderId is required' }], isError: true };
+    if (!args.fromCannedServiceId && !args.name) {
+      return { content: [{ type: 'text', text: 'Error: provide either fromCannedServiceId or name' }], isError: true };
+    }
+
+    const body = pickFields(args, ADD_SERVICE_FIELDS);
+    const data = await shopmonkeyRequest<Service[]>(
+      'POST',
+      `/order/${sanitizePathParam(String(args.orderId))}/service`,
+      [body] as unknown as Record<string, unknown>
+    );
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
   },
 

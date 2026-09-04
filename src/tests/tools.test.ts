@@ -20,17 +20,17 @@ const toolModules = [
   { name: 'inventory', mod: inventory, expectedTools: 4 },
   { name: 'appointments', mod: appointments, expectedTools: 4 },
   { name: 'payments', mod: payments, expectedTools: 3 },
-  { name: 'labor', mod: labor, expectedTools: 4 },
-  { name: 'services', mod: services, expectedTools: 22 },    // 3 existing + 3 CRUD + 15 line-item + 1 deferred
+  { name: 'labor', mod: labor, expectedTools: 5 },     // +1 assign_technician
+  { name: 'services', mod: services, expectedTools: 23 },    // 3 existing + 3 CRUD + 15 line-item + 1 deferred + 1 add_service_to_order
   { name: 'workflow', mod: workflow, expectedTools: 2 },
   { name: 'webhooks', mod: webhooks, expectedTools: 5 },
   { name: 'reports', mod: reports, expectedTools: 3 },
 ];
 
 describe('Tool registration', () => {
-  it('has 64 total tool definitions', () => {
+  it('has 66 total tool definitions', () => {
     const total = toolModules.reduce((sum, m) => sum + m.mod.definitions.length, 0);
-    assert.equal(total, 64);
+    assert.equal(total, 66);
   });
 
   for (const { name, mod, expectedTools } of toolModules) {

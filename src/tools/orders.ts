@@ -40,6 +40,7 @@ export const definitions: Tool[] = [
         vehicleId: { type: 'string', description: 'Vehicle ID to associate with the order' },
         status: { type: 'string', enum: ['Estimate', 'RepairOrder', 'Invoice'], description: 'Initial order status' },
         locationId: { type: 'string', description: 'Location ID for multi-location shops. Defaults to SHOPMONKEY_LOCATION_ID env var if set.' },
+        name: { type: 'string', description: 'Order title shown on the work order (e.g. "Front brake job")' },
       },
     },
   },
@@ -53,14 +54,15 @@ export const definitions: Tool[] = [
         status: { type: 'string', enum: ['Estimate', 'RepairOrder', 'Invoice'], description: 'New order status' },
         customerId: { type: 'string', description: 'New customer ID' },
         vehicleId: { type: 'string', description: 'New vehicle ID' },
+        name: { type: 'string', description: 'New order title' },
       },
       required: ['id'],
     },
   },
 ];
 
-const UPDATE_FIELDS = ['status', 'customerId', 'vehicleId'];
-const CREATE_FIELDS = ['customerId', 'vehicleId', 'status', 'locationId'];
+const UPDATE_FIELDS = ['status', 'customerId', 'vehicleId', 'name'];
+const CREATE_FIELDS = ['customerId', 'vehicleId', 'status', 'locationId', 'name'];
 
 function applyDefaultLocation(params: Record<string, string>): void {
   if (!params.locationId) {
