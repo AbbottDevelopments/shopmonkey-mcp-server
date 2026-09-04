@@ -53,10 +53,14 @@ async function main(): Promise<void> {
     try {
       await transport.handleRequest(req, res);
     } catch (err) {
+      // Log the detail server-side; return a generic message. The error can
+      // carry internal paths, upstream URLs and Shopmonkey error text, none of
+      // which should reach an HTTP caller.
       const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`Request failed: ${message}\n`);
       if (!res.headersSent) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: message }));
+        res.end(JSON.stringify({ error: 'Internal server error' }));
       }
     }
   });

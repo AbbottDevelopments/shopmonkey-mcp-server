@@ -1,6 +1,6 @@
 {
   "name": "shopmonkey-mcp-server",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "MCP server for the Shopmonkey REST API (v3) \u2014 work orders, customers, vehicles, inventory, and more",
   "type": "module",
   "main": "dist/index.js",
@@ -43,11 +43,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "dotenv": "^17.3.1"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
-    "typescript": "^5.8.3"
+    "@types/node": "^25.9.5",
+    "typescript": "^5.9.3"
   }
 }

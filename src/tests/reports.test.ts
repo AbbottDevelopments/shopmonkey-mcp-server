@@ -116,6 +116,38 @@ describe('Reports — report_revenue_summary', () => {
   });
 });
 
+describe('Reports — prototype safety', () => {
+  beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
+  afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
+
+  it('does not let an API-supplied status reach Object.prototype', async () => {
+    // breakdown is keyed by the order's own status field. A null-prototype map
+    // keeps a hostile or malformed status from touching the prototype chain.
+    setupMock([
+      { id: 'o-1', status: '__proto__', totalCostCents: 100, paid: true, invoicedDate: '2026-04-05T10:00:00Z' },
+      { id: 'o-2', status: 'constructor', totalCostCents: 200, paid: true, invoicedDate: '2026-04-05T10:00:00Z' },
+    ]);
+
+    const result = await reports.handlers.report_revenue_summary({ startDate: '2026-04-01', endDate: '2026-04-11' });
+    const data = JSON.parse(result.content[0].text);
+
+    assert.equal(data.count, 2);
+    assert.equal(data.breakdown['__proto__'].count, 1);
+    assert.equal(data.breakdown['constructor'].count, 1);
+    assert.equal(({} as Record<string, unknown>).polluted, undefined);
+    assert.equal(typeof ({}).constructor, 'function', 'Object.prototype.constructor must be intact');
+  });
+
+  it('counts an unexpected confirmationStatus without touching the prototype', async () => {
+    setupMock([{ id: 'a-1', confirmationStatus: '__proto__', locationId: undefined }]);
+    const result = await reports.handlers.report_appointment_summary({ startDate: '2026-04-01', endDate: '2026-04-11' });
+    const data = JSON.parse(result.content[0].text);
+
+    assert.equal(data.breakdown['__proto__'].count, 1);
+    assert.equal(typeof ({}).constructor, 'function', 'Object.prototype.constructor must be intact');
+  });
+});
+
 describe('Reports — report_appointment_summary', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
