@@ -117,13 +117,15 @@ describe('search_customers_by_phone', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('sends POST /customer/phone_number/search with phoneNumber in body', async () => {
+  it('sends POST /customer/phone_number/search with the phoneNumbers object body', async () => {
     setupMock(mockSuccess([]));
     const result = await customers.handlers.search_customers_by_phone({ phoneNumber: '555-867-5309' });
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/phone_number/search'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.phoneNumber, '555-867-5309');
+    // The endpoint takes an array of objects, not a bare string or a bare
+    // array of strings — verified against the live API by AndyKimberle.
+    assert.deepEqual(body, { phoneNumbers: [{ number: '555-867-5309' }] });
     assert.ok(!result.isError);
   });
 

@@ -54,7 +54,7 @@ describe('MCP Protocol — Server Startup', () => {
 });
 
 describe('MCP Protocol — Tool Count Verification', () => {
-  it('server registers exactly 66 tools (verified via direct import)', async () => {
+  it('server registers exactly 69 tools (verified via direct import)', async () => {
     const modules = await Promise.all([
       import('../tools/orders.js'),
       import('../tools/customers.js'),
@@ -67,10 +67,11 @@ describe('MCP Protocol — Tool Count Verification', () => {
       import('../tools/workflow.js'),
       import('../tools/webhooks.js'),
       import('../tools/reports.js'),
+      import('../tools/labels.js'),
     ]);
 
     const allDefinitions = modules.flatMap(m => m.definitions);
-    assert.equal(allDefinitions.length, 66);
+    assert.equal(allDefinitions.length, 69);
 
     // Verify no duplicates
     const names = allDefinitions.map(d => d.name);

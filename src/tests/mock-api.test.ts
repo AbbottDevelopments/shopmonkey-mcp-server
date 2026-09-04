@@ -151,7 +151,7 @@ describe('Mock API — Customers', () => {
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/phone_number/search'));
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.phoneNumber, '555-0100');
+    assert.deepEqual(body, { phoneNumbers: [{ number: '555-0100' }] });
     assert.ok(!result.isError);
   });
 

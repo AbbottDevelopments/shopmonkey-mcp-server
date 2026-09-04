@@ -93,7 +93,7 @@ describe('HTTP Transport — smoke test', () => {
     }
 
     assert.ok(tools !== null, `Could not find tools in response: ${text.slice(0, 500)}`);
-    assert.ok(tools!.length >= 66, `Expected at least 66 tools, got ${tools!.length}`);
+    assert.ok(tools!.length >= 69, `Expected at least 69 tools, got ${tools!.length}`);
   });
 
   // D3: Health check endpoint

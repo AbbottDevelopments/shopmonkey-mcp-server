@@ -12,6 +12,7 @@ import * as services from '../tools/services.js';
 import * as workflow from '../tools/workflow.js';
 import * as webhooks from '../tools/webhooks.js';
 import * as reports from '../tools/reports.js';
+import * as labels from '../tools/labels.js';
 
 const toolModules = [
   { name: 'orders', mod: orders, expectedTools: 4 },         // -1 delete_order (C3)
@@ -25,12 +26,13 @@ const toolModules = [
   { name: 'workflow', mod: workflow, expectedTools: 2 },
   { name: 'webhooks', mod: webhooks, expectedTools: 5 },
   { name: 'reports', mod: reports, expectedTools: 3 },
+  { name: 'labels', mod: labels, expectedTools: 3 },
 ];
 
 describe('Tool registration', () => {
-  it('has 66 total tool definitions', () => {
+  it('has 69 total tool definitions', () => {
     const total = toolModules.reduce((sum, m) => sum + m.mod.definitions.length, 0);
-    assert.equal(total, 66);
+    assert.equal(total, 69);
   });
 
   for (const { name, mod, expectedTools } of toolModules) {
