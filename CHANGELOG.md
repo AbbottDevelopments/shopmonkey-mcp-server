@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Because other systems connect to this server as an MCP client, versions are cut
+against the **tool contract**, not the internals:
+
+| Bump | When |
+|---|---|
+| MAJOR | A tool is removed or renamed, or an existing argument changes meaning or becomes required |
+| MINOR | A tool is added, or an argument is added without breaking existing calls |
+| PATCH | A fix that leaves the tool contract unchanged |
+
+A corrected endpoint is a PATCH if callers are unaffected and a MAJOR if it is
+not — v1.1.0 is a MINOR despite making `orderId` required on `list_services`,
+because the previous route returned 404 and no working call could break.
+
 ## [1.1.0] — 2026-09-03
 
 The first release informed by people running this server against real shops.
