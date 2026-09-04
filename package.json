@@ -1,7 +1,7 @@
 {
   "name": "shopmonkey-mcp-server",
-  "version": "1.0.0",
-  "description": "MCP server for the Shopmonkey REST API (v3) — work orders, customers, vehicles, inventory, and more",
+  "version": "1.1.0",
+  "description": "MCP server for the Shopmonkey REST API (v3) \u2014 work orders, customers, vehicles, inventory, and more",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

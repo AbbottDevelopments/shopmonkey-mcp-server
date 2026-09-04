@@ -1,6 +1,6 @@
 # Capabilities
 
-This document maps every tool in the Shopmonkey MCP server to the use case it serves. All endpoints are verified against the [Shopmonkey REST API v3](https://shopmonkey.dev/overview).
+This document maps every tool in the Shopmonkey MCP server to the use case it serves. Endpoints follow the [Shopmonkey REST API v3](https://shopmonkey.dev/overview) documentation; see [LIMITATIONS.md](./LIMITATIONS.md) for the ones that rest on field reports rather than published docs, and [API-PROVENANCE.md](./API-PROVENANCE.md) for what "verified" does and does not mean here.
 
 ## Use Case Groups
 
@@ -81,16 +81,17 @@ API reference: [Appointment resources](https://shopmonkey.dev/resources/appointm
 
 > **Important:** All money values use integer cents with `*Cents` field naming. Never send decimal dollar amounts.
 
-### Technicians & Labor (4 tools)
+### Technicians & Labor (5 tools)
 
 | Tool | Description | Use Case |
 |------|-------------|----------|
-| `list_labor` | List labor line items | Core MCP — labor tracking |
+| `list_labor` | List labor line items on a service (requires orderId + serviceId) | Core MCP — labor tracking |
+| `assign_technician` | Assign a technician to labor line items on an order | Core MCP — dispatch |
 | `list_timeclock` | Technician clock-in/clock-out events | Core MCP — time tracking |
 | `list_users` | List shop users and technicians | Core MCP — team roster |
 | `get_user` | Get user/technician profile | Core MCP — tech details |
 
-### Services & Canned Services (22 tools)
+### Services & Canned Services (23 tools)
 
 | Tool | Description | Use Case |
 |------|-------------|----------|
@@ -145,7 +146,19 @@ API reference: [Webhook resources](https://shopmonkey.dev/resources/webhook)
 | `report_appointment_summary` | Appointment counts by confirmation status for a date range | Core MCP — schedule analytics |
 | `report_open_estimates` | Open unauthorized estimates with age-in-days calculation | Core MCP — follow-up opportunity pipeline |
 
-> Reports are composited client-side from list endpoints (Shopmonkey has no native report API). Each is capped at 100 records — use tighter date ranges for larger shops.
+> Reports are composited client-side from list endpoints (Shopmonkey has no native report API).
+>
+> Revenue is filtered on `invoicedDate`, not order creation date. Order-based reports page the full order list — the API ignores date filters, so the range cannot be narrowed server-side — and return `truncated: true` if the 1000-record safety cap was reached. `report_appointment_summary` uses `/appointment/search`, which does filter by date server-side. See [LIMITATIONS.md](./LIMITATIONS.md).
+
+### Labels (3 tools)
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `list_labels` | List labels, filterable by exact name or entity type | Core MCP — find a label ID |
+| `get_label` | Get a single label by ID | Core MCP — label details |
+| `assign_label` | Attach a label to an order, customer, vehicle or line item | Core MCP — tagging |
+
+API reference: [Label resources](https://shopmonkey.dev/resources/label)
 
 ### Workflow & Locations (2 tools)
 
@@ -166,9 +179,10 @@ API reference: [Webhook resources](https://shopmonkey.dev/resources/webhook)
 | Inventory & Parts | 4 | Core MCP |
 | Appointments | 4 | Core MCP |
 | Payments | 3 | Core MCP |
-| Technicians & Labor | 4 | Core MCP |
-| Services & Canned Services | 22 | Core MCP |
+| Technicians & Labor | 5 | Core MCP |
+| Services & Canned Services | 23 | Core MCP |
 | Webhooks | 5 | **Webhook/Event** |
 | Reports | 3 | Core MCP |
+| Labels | 3 | Core MCP |
 | Workflow & Locations | 2 | Core MCP |
-| **Total** | **64** | |
+| **Total** | **69** | |

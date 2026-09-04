@@ -6,7 +6,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 
 ## Features
 
-- **64 tools** across 11 resource groups covering the Shopmonkey API
+- **69 tools** across 12 resource groups covering the Shopmonkey API
 - **Dual transport** — stdio for local/desktop use, Streamable HTTP for cloud deployment
 - Shopmonkey API key authentication (Bearer token to Shopmonkey REST API)
 - Automatic retry with exponential backoff on rate limits (429) and server errors (5xx)
@@ -251,7 +251,10 @@ Deploy `dist/http.js` to Railway or Render with `SHOPMONKEY_API_KEY` and `MCP_AU
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture.md) | System design, dual transport, tool module pattern, client resilience |
-| [Capabilities](docs/CAPABILITIES.md) | All 64 tools with use-case descriptions |
+| [Capabilities](docs/CAPABILITIES.md) | All 69 tools with use-case descriptions |
+| [Changelog](CHANGELOG.md) | Release history |
+| [Credits](CREDITS.md) | Fork authors whose field reports drive this project |
+| [API Provenance](docs/API-PROVENANCE.md) | Why v1.0.0 called endpoints that do not exist |
 | [Limitations](docs/LIMITATIONS.md) | Unsupported operations with rationale and workarounds |
 | [Deployment](docs/DEPLOYMENT.md) | Railway + Doppler single-tenant deployment guide |
 | [Multi-Tenant Future](docs/MULTI-TENANT-FUTURE.md) | Future-work exploration for multi-shop deployment |
