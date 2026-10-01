@@ -11,14 +11,15 @@ Tools serve two primary integration patterns:
 
 ---
 
-### Work Orders (4 tools)
+### Work Orders (5 tools)
 
 | Tool | Description | Use Case |
 |------|-------------|----------|
 | `list_orders` | List work orders with filters (status, customer, location). Valid statuses: `Estimate`, `RepairOrder`, `Invoice` | Core MCP — browse/filter shop work |
 | `get_order` | Get full work order details including line items and totals | Core MCP — deep dive on a specific job |
 | `create_order` | Create a new work order | Core MCP — open new jobs via chat |
-| `update_order` | Update work order fields (status, assignment, notes) | Core MCP — advance jobs through workflow |
+| `update_order` | Update work order fields (status, notes, workflow stage); reports which fields persisted | Core MCP — advance jobs through workflow |
+| `update_service` | Update a service's name or note on an order | Core MCP — annotate work |
 
 API reference: [Order resources](https://shopmonkey.dev/resources/order)
 
@@ -173,7 +174,7 @@ API reference: [Label resources](https://shopmonkey.dev/resources/label)
 
 | Resource Group | Tools | Primary Pattern |
 |---------------|-------|-----------------|
-| Work Orders | 4 | Core MCP |
+| Work Orders | 5 | Core MCP |
 | Customers | 6 | Core MCP |
 | Vehicles | 7 | Core MCP |
 | Inventory & Parts | 4 | Core MCP |
@@ -185,4 +186,4 @@ API reference: [Label resources](https://shopmonkey.dev/resources/label)
 | Reports | 3 | Core MCP |
 | Labels | 3 | Core MCP |
 | Workflow & Locations | 2 | Core MCP |
-| **Total** | **69** | |
+| **Total** | **70** | |

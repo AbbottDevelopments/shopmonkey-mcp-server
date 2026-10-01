@@ -6,7 +6,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 
 ## Features
 
-- **69 tools** across 12 resource groups covering the Shopmonkey API
+- **70 tools** across 12 resource groups covering the Shopmonkey API
 - **Dual transport** — stdio for local/desktop use, Streamable HTTP for cloud deployment
 - Shopmonkey API key authentication (Bearer token to Shopmonkey REST API)
 - Automatic retry with exponential backoff on rate limits (429) and server errors (5xx)
@@ -74,14 +74,15 @@ For cloud deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Tool Reference
 
-### Work Orders (4 tools)
+### Work Orders (5 tools)
 
 | Tool | Description |
 |------|-------------|
 | `list_orders` | List work orders with filters (status, customer, location). Valid statuses: `Estimate`, `RepairOrder`, `Invoice` |
 | `get_order` | Get full work order details |
 | `create_order` | Create a new work order |
-| `update_order` | Update work order fields |
+| `update_order` | Update work order fields; reports which persisted |
+| `update_service` | Update a service's name or note on an order |
 
 > Order deletion is not supported by the Shopmonkey API. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for details.
 
@@ -89,7 +90,7 @@ For cloud deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 | Tool | Description |
 |------|-------------|
-| `search_customers` | Search customers by full-body query |
+| `search_customers` | Find customers by name, email or phone (see LIMITATIONS: unverified filter) |
 | `search_customers_by_email` | Search for a customer by email address |
 | `search_customers_by_phone` | Search for a customer by phone number |
 | `get_customer` | Get full customer profile |
@@ -138,16 +139,17 @@ For cloud deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 > All money values use integer cents with `*Cents` naming. Never send decimal dollar amounts.
 
-### Technicians & Labor (4 tools)
+### Technicians & Labor (5 tools)
 
 | Tool | Description |
 |------|-------------|
-| `list_labor` | List labor line items |
+| `list_labor` | List labor line items on a service |
+| `assign_technician` | Assign a technician to labor lines; verified by read-back |
 | `list_timeclock` | Technician clock-in/clock-out events |
 | `list_users` | List shop users and technicians |
 | `get_user` | Get user/technician profile |
 
-### Services & Canned Services (22 tools)
+### Services & Canned Services (23 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -251,7 +253,7 @@ Deploy `dist/http.js` to Railway or Render with `SHOPMONKEY_API_KEY` and `MCP_AU
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture.md) | System design, dual transport, tool module pattern, client resilience |
-| [Capabilities](docs/CAPABILITIES.md) | All 69 tools with use-case descriptions |
+| [Capabilities](docs/CAPABILITIES.md) | All 70 tools with use-case descriptions |
 | [Changelog](CHANGELOG.md) | Release history |
 | [Credits](CREDITS.md) | Fork authors whose field reports drive this project |
 | [API Provenance](docs/API-PROVENANCE.md) | Why v1.0.0 called endpoints that do not exist |
@@ -268,6 +270,7 @@ Deploy `dist/http.js` to Railway or Render with `SHOPMONKEY_API_KEY` and `MCP_AU
 | `SHOPMONKEY_LOCATION_ID` | No | — | Scope all queries to one location (multi-location shops) |
 | `MCP_AUTH_TOKEN` | Cloud: Yes | — | Bearer token for HTTP transport authentication. **Required for cloud deployment** — omitting it makes the endpoint public. |
 | `PORT` | No | `3000` | HTTP transport listening port |
+| `MCP_READ_ONLY` | No | — | Set to `true` to hide and refuse every tool that can change data |
 
 The server automatically loads `.env` via [dotenv](https://www.npmjs.com/package/dotenv) if present. You can also pass variables through your shell or MCP client config.
 
