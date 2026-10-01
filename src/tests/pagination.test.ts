@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { fetchAllRecords, isWithinDateRange, toDateRangeBoundary } from '../client.js';
+import { fetchAllRecords, fetchAllRecordsPost, isWithinDateRange, toDateRangeBoundary } from '../client.js';
 
 const originalFetch = globalThis.fetch;
 
@@ -168,5 +168,50 @@ describe('fetchAllRecords', () => {
     const result = await fetchAllRecords<{ id: string }>('/order');
     assert.deepEqual(result.records, []);
     assert.equal(result.truncated, false);
+  });
+});
+
+// ─── fetchAllRecordsPost ──────────────────────────────────────────────────────
+
+describe('fetchAllRecordsPost', () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = origFetch; delete process.env.SHOPMONKEY_API_KEY; });
+
+  function mockPages(pages: Array<{ data: unknown[]; meta?: Record<string, unknown> }>) {
+    process.env.SHOPMONKEY_API_KEY = 'k';
+    const sent: Array<Record<string, unknown>> = [];
+    let i = 0;
+    globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body ?? '{}')));
+      const page = pages[Math.min(i++, pages.length - 1)];
+      const body = JSON.stringify({ success: true, data: page.data, meta: page.meta });
+      return new Response(body, { status: 200, headers: { 'content-length': String(body.length) } });
+    }) as typeof fetch;
+    return sent;
+  }
+
+  it('sends limit and skip in the POST body, advancing skip by the page size', async () => {
+    const sent = mockPages([
+      { data: [{ id: 1 }, { id: 2 }], meta: { hasMore: true } },
+      { data: [{ id: 3 }], meta: { hasMore: false } },
+    ]);
+    const { records, truncated } = await fetchAllRecordsPost('/x/search', { where: { a: 1 } }, { pageSize: 2 });
+    assert.deepEqual(records.map((r) => r.id), [1, 2, 3]);
+    assert.equal(truncated, false);
+    assert.deepEqual(sent.map((b) => [b.limit, b.skip]), [[2, 0], [2, 2]]);
+    assert.deepEqual(sent[0].where, { a: 1 });
+  });
+
+  it('de-duplicates by id and stops when an endpoint replays the same window', async () => {
+    const sent = mockPages([{ data: [{ id: 1 }, { id: 2 }] }]);
+    const { records } = await fetchAllRecordsPost('/x/search', undefined, { pageSize: 2, maxRecords: 1000 });
+    assert.deepEqual(records.map((r) => r.id), [1, 2]);
+    assert.ok(sent.length <= 5, `looped ${sent.length} times`);
+  });
+
+  it('reports truncated when the safety cap is hit with more remaining', async () => {
+    mockPages([{ data: [{ id: 1 }, { id: 2 }] }, { data: [{ id: 3 }, { id: 4 }] }]);
+    const { truncated } = await fetchAllRecordsPost('/x/search', undefined, { pageSize: 2, maxRecords: 4 });
+    assert.equal(truncated, true);
   });
 });

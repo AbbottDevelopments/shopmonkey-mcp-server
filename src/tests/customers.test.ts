@@ -35,56 +35,107 @@ function mockSuccess(data: unknown): MockResponse {
   return { status: 200, body: { success: true, data } };
 }
 
+const reqBody = (i = 0) => JSON.parse(capturedRequests[i].body ?? '{}') as Record<string, unknown>;
+const jsonOf = (r: { content: Array<{ text: string }> }) => JSON.parse(r.content[0].text);
+const cust = (id: string, first: string, last: string, extra: Record<string, unknown> = {}) =>
+  ({ id, firstName: first, lastName: last, normalizedName: `${first} ${last}`.toLowerCase(), ...extra });
+
 // ─── search_customers ─────────────────────────────────────────────────────────
 
 describe('search_customers', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; delete process.env.SHOPMONKEY_LOCATION_ID; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; if (originalLocationId) process.env.SHOPMONKEY_LOCATION_ID = originalLocationId; });
 
-  it('sends POST /customer/search', async () => {
-    setupMock(mockSuccess([]));
-    const result = await customers.handlers.search_customers({});
+  it('sends POST /customer/search with a normalizedName contains filter for the query word', async () => {
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith')]));
+    const result = await customers.handlers.search_customers({ query: 'smith' });
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/search'));
+    assert.deepEqual(reqBody().where, { normalizedName: { contains: 'smith' } });
     assert.ok(!result.isError);
   });
 
-  it('sends query in the request body', async () => {
-    setupMock(mockSuccess([]));
-    await customers.handlers.search_customers({ query: 'John Smith' });
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.query, 'John Smith');
+  it('never sends the free-text `query` field the API ignores', async () => {
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith')]));
+    await customers.handlers.search_customers({ query: 'smith' });
+    assert.equal('query' in reqBody(), false);
   });
 
-  it('sends limit and skip in the request body', async () => {
-    setupMock(mockSuccess([]));
-    await customers.handlers.search_customers({ limit: 10, skip: 5 });
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.limit, 10);
-    assert.equal(body.skip, 5);
+  it('searches each word separately and unions the results, best match first', async () => {
+    setupMock([
+      mockSuccess([cust('1', 'Ann', 'Smith'), cust('3', 'Ann', 'Jones')]), // contains "ann"
+      mockSuccess([cust('1', 'Ann', 'Smith'), cust('2', 'Bob', 'Smith')]), // contains "smith"
+    ]);
+    const out = jsonOf(await customers.handlers.search_customers({ query: 'ann smith' }));
+    assert.equal(capturedRequests.length, 2);
+    assert.deepEqual(out.wordsSearched, ['ann', 'smith']);
+    assert.equal(out.filtering, 'server-side (per-word contains)');
+    assert.equal(out.results[0].id, '1');
+    assert.equal(out.matched, 1); // only record 1 matches every word
   });
 
-  it('injects SHOPMONKEY_LOCATION_ID env var into search body', async () => {
+  it('returns compact summaries rather than full records', async () => {
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith', { emails: [{ email: 'ann@example.com' }], phoneNumbers: [{ number: '5551234' }], hugeField: 'x'.repeat(500) })]));
+    const out = jsonOf(await customers.handlers.search_customers({ query: 'smith' }));
+    assert.deepEqual(out.results[0].emails, ['ann@example.com']);
+    assert.deepEqual(out.results[0].phoneNumbers, ['5551234']);
+    assert.equal('hugeField' in out.results[0], false);
+  });
+
+  it('falls back to a client-side scan, with a loud coverage warning, when the filter is not honoured', async () => {
+    setupMock([
+      mockSuccess([cust('9', 'Zed', 'Unrelated')]), // server ignored the filter: record does not contain the word
+      mockSuccess([cust('1', 'Ann', 'Smith'), cust('9', 'Zed', 'Unrelated')]),
+    ]);
+    const out = jsonOf(await customers.handlers.search_customers({ query: 'smith' }));
+    assert.equal(out.filtering, 'client-side fallback');
+    assert.ok(out.coverage.includes('NOT proof'));
+    assert.deepEqual(out.results.map((r: { id: string }) => r.id), ['1']);
+  });
+
+  it('falls back rather than failing if the filtered request errors', async () => {
+    setupMock([{ status: 400, body: { success: false, message: 'bad where' } }, mockSuccess([cust('1', 'Ann', 'Smith')])]);
+    const out = jsonOf(await customers.handlers.search_customers({ query: 'smith' }));
+    assert.equal(out.filtering, 'client-side fallback');
+  });
+
+  it('passes a raw where object through verbatim when given', async () => {
+    setupMock(mockSuccess([]));
+    await customers.handlers.search_customers({ where: { companyName: { contains: 'acme' } } });
+    assert.deepEqual(reqBody().where, { companyName: { contains: 'acme' } });
+  });
+
+  it('injects SHOPMONKEY_LOCATION_ID env var into the search body', async () => {
     process.env.SHOPMONKEY_LOCATION_ID = 'loc-from-env';
-    setupMock(mockSuccess([]));
-    await customers.handlers.search_customers({});
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.locationId, 'loc-from-env');
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith')]));
+    await customers.handlers.search_customers({ query: 'smith' });
+    assert.equal(reqBody().locationId, 'loc-from-env');
   });
 
   it('does not override an explicit locationId with the env var', async () => {
     process.env.SHOPMONKEY_LOCATION_ID = 'loc-from-env';
-    setupMock(mockSuccess([]));
-    await customers.handlers.search_customers({ locationId: 'loc-explicit' });
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.locationId, 'loc-explicit');
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith')]));
+    await customers.handlers.search_customers({ query: 'smith', locationId: 'loc-explicit' });
+    assert.equal(reqBody().locationId, 'loc-explicit');
   });
 
   it('rejects unknown fields (pickFields security)', async () => {
-    setupMock(mockSuccess([]));
-    await customers.handlers.search_customers({ query: 'Test', hackerField: 'bad' });
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.hackerField, undefined);
+    setupMock(mockSuccess([cust('1', 'Ann', 'Smith')]));
+    await customers.handlers.search_customers({ query: 'smith', hackerField: 'bad' });
+    assert.equal(reqBody().hackerField, undefined);
+  });
+});
+
+describe('rankCustomerMatches', () => {
+  it('prefers records that match every word, and otherwise ranks by word specificity', () => {
+    const records = [cust('a', 'Ann', 'Jones'), cust('b', 'Annabel', 'Smith'), cust('c', 'Bob', 'Smith')] as never[];
+    assert.deepEqual(customers.rankCustomerMatches(records, 'annabel smith').map((r) => (r as { id: string }).id), ['b']);
+    assert.deepEqual(customers.rankCustomerMatches(records, 'annabel jones').map((r) => (r as { id: string }).id), ['b', 'a']);
+  });
+
+  it('does not resolve nicknames that are not literal substrings', () => {
+    assert.deepEqual(customers.rankCustomerMatches([cust('r', 'Robert', 'Lee')] as never[], 'bob lee').length, 1); // matches on "lee" only
+    assert.deepEqual(customers.rankCustomerMatches([cust('r', 'Robert', 'Lee')] as never[], 'bob'), []);
   });
 });
 
@@ -94,14 +145,27 @@ describe('search_customers_by_email', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('sends POST /customer/email/search with the emails object body', async () => {
+  it('sends POST /customer/email/search with emails as plain strings first', async () => {
     setupMock(mockSuccess([]));
     const result = await customers.handlers.search_customers_by_email({ email: 'test@example.com' });
     assert.equal(capturedRequests[0].method, 'POST');
     assert.ok(capturedRequests[0].url.includes('/customer/email/search'));
-    const body = JSON.parse(capturedRequests[0].body!);
-    assert.deepEqual(body, { emails: [{ email: 'test@example.com' }] });
+    assert.deepEqual(reqBody(), { emails: ['test@example.com'] });
+    assert.equal(capturedRequests.length, 1);
     assert.ok(!result.isError);
+  });
+
+  it('retries once with the { email } object form if the API rejects strings', async () => {
+    setupMock([{ status: 400, body: { success: false, message: 'emails must be objects' } }, mockSuccess([{ id: 'c1' }])]);
+    const result = await customers.handlers.search_customers_by_email({ email: 'test@example.com' });
+    assert.equal(capturedRequests.length, 2);
+    assert.deepEqual(reqBody(1), { emails: [{ email: 'test@example.com' }] });
+    assert.deepEqual(jsonOf(result), [{ id: 'c1' }]);
+  });
+
+  it('surfaces the error if both shapes are rejected', async () => {
+    setupMock([{ status: 400, body: { success: false, message: 'no' } }, { status: 400, body: { success: false, message: 'still no' } }]);
+    await assert.rejects(() => customers.handlers.search_customers_by_email({ email: 'a@b.co' }), /still no/);
   });
 
   it('returns an error when email is missing', async () => {
@@ -143,7 +207,7 @@ describe('get_customer', () => {
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
   it('sends GET /customer/:id', async () => {
-    setupMock(mockSuccess({ id: 'cust-1', firstName: 'Jake' }));
+    setupMock(mockSuccess({ id: 'cust-1', firstName: 'Jane' }));
     const result = await customers.handlers.get_customer({ id: 'cust-1' });
     assert.equal(capturedRequests[0].method, 'GET');
     assert.ok(capturedRequests[0].url.endsWith('/customer/cust-1'));
@@ -151,10 +215,10 @@ describe('get_customer', () => {
   });
 
   it('returns the customer data as JSON text', async () => {
-    setupMock(mockSuccess({ id: 'cust-1', firstName: 'Jake', lastName: 'Abbott' }));
+    setupMock(mockSuccess({ id: 'cust-1', firstName: 'Jane', lastName: 'Doe' }));
     const result = await customers.handlers.get_customer({ id: 'cust-1' });
     const parsed = JSON.parse(result.content[0].text);
-    assert.equal(parsed.firstName, 'Jake');
+    assert.equal(parsed.firstName, 'Jane');
   });
 
   it('returns an error when id is missing', async () => {
@@ -186,10 +250,10 @@ describe('create_customer', () => {
 
   it('sends allowed fields in the request body', async () => {
     setupMock(mockSuccess({ id: 'cust-new' }));
-    await customers.handlers.create_customer({ firstName: 'Jake', lastName: 'Abbott', city: 'Portland', state: 'OR', zip: '97201' });
+    await customers.handlers.create_customer({ firstName: 'Jane', lastName: 'Doe', city: 'Portland', state: 'OR', zip: '97201' });
     const body = JSON.parse(capturedRequests[0].body!);
-    assert.equal(body.firstName, 'Jake');
-    assert.equal(body.lastName, 'Abbott');
+    assert.equal(body.firstName, 'Jane');
+    assert.equal(body.lastName, 'Doe');
     assert.equal(body.city, 'Portland');
     assert.equal(body.state, 'OR');
     assert.equal(body.zip, '97201');
@@ -197,10 +261,10 @@ describe('create_customer', () => {
 
   it('rejects unknown fields (pickFields security)', async () => {
     setupMock(mockSuccess({ id: 'cust-new' }));
-    await customers.handlers.create_customer({ firstName: 'Jake', hackerField: 'bad' });
+    await customers.handlers.create_customer({ firstName: 'Jane', hackerField: 'bad' });
     const body = JSON.parse(capturedRequests[0].body!);
     assert.equal(body.hackerField, undefined);
-    assert.equal(body.firstName, 'Jake');
+    assert.equal(body.firstName, 'Jane');
   });
 });
 
