@@ -39,6 +39,8 @@ the Internet Archive, not against today's docs.
 | 4 | Date filters on list endpoints silently ignored | Documented as working | Upstream doc inaccuracy |
 | 5 | List endpoints return unstable, non-repeatable subsets | Not documented either way | Undocumented behaviour |
 | 6 | `meta.hasMore` / `meta.total` unused | **Yes** — documented on list responses | Our omission |
+| 7 | Inventory, payment, timeclock and parts-search routes | **No** — never documented at those paths | Our error |
+| 8 | Email search body element shape | Not specified | Our extrapolation (see §8) |
 
 ### 1. Services are nested under their order — our error
 
@@ -77,23 +79,32 @@ Fixed in `2570d3a`.
 
 ### 2. Labor has never had a flat list route — our error
 
-The [Labor resource page as archived 2025-09-15][lab] — six months before the
-build — documents exactly one endpoint, `PUT /v3/order/:orderId/labor_bulk`, and
-today's page still documents exactly that one endpoint. The page has not
-meaningfully changed in a year.
+`GET /labor` was not taken from the documentation, because no flat labor route
+has ever been documented. It was inferred from the REST pattern the other
+resources follow and shipped without ever being called.
 
-`GET /labor` was not taken from the documentation, because it was never in the
-documentation. It was inferred from the REST pattern the other resources follow
-and shipped without ever being called.
+> **Correction (v1.2.0).** Earlier versions of this file said the
+> [Labor resource page as archived 2025-09-15][lab] "documents exactly one
+> endpoint, `PUT /v3/order/:orderId/labor_bulk`". **That was wrong.** The same
+> archived page documents four: `labor_bulk`, plus `PUT`, `POST` and `DELETE`
+> on `/v3/order/:orderId/service/:serviceId/labor[/:id]`. It was not checked
+> carefully, and it fed the decision below to prefer `labor_bulk` over the
+> per-line-item `PUT` that [ZanPope's fork][zan] had found. The page no longer
+> exists (`/resources/labor` is a 404 and the sidebar has no Labor entry), the
+> current [Order page](https://shopmonkey.dev/resources/order) no longer lists
+> `labor_bulk`, and CJVlady reports `labor_bulk` answering "Route not found" on
+> a live shop. The per-line-item `PUT` is documented on the Order page today and
+> accepts `technicianId`.
 
-Two consequences for the fix, both in `2570d3a`:
+What this means for the code:
 
-- `list_labor` now reads the nested `GET /order/:orderId/service/:serviceId/labor`
-  route. This route is **also** undocumented, but unlike the flat route it has
-  been exercised against a live shop (see below).
-- `assign_technician` uses the documented `labor_bulk` endpoint rather than the
-  per-line-item `PUT` used in the fork it came from, because `labor_bulk` is the
-  only technician-assignment route Shopmonkey documents.
+- `assign_technician` originally used `labor_bulk` (`2570d3a`) on the strength
+  of the mistaken claim above. As of v1.2.0 it uses the per-line-item `PUT`, as
+  ZanPope's fork did, and reads the order back to confirm the write.
+- `list_labor` originally called `GET /order/:orderId/service/:serviceId/labor`.
+  **No such route is documented.** The current Order page's `GET
+  /order/:orderId/service` response carries each service's `labors`, and v1.2.0
+  reads labor from there instead, as CJVlady's fork does.
 
 ### 3. `create_order` — genuine upstream drift
 
@@ -147,6 +158,49 @@ and the reports simply took the first 100 records and called it the answer.
 Fixed in `adacf3a`: `shopmonkeyRequestWithMeta` preserves it and `fetchAllRecords`
 terminates on `hasMore` where the API provides it.
 
+### 7. Four more v1.0.0 routes that no page documents — our error
+
+Found by reading the current documentation while reconciling the forks (v1.2.0).
+Each was, like the flat labor route, inferred from the REST pattern and never
+called. None of them was ever corrected by a field report, because nobody had
+reported on them.
+
+| Tool | Route we called | What the docs document |
+|---|---|---|
+| `list_inventory_parts`, `get_inventory_part` | `GET /inventory/part[/:id]` | `GET /inventory_part/:id`, `POST /inventory_part/search` — underscore, not slash |
+| `list_inventory_tires` | `GET /inventory/tire` | `POST /inventory_tire/search` |
+| `search_parts` | `GET /part?query=` | Nothing. `/part` is the order line-item resource, not inventory |
+| `list_payments`, `get_payment` | `GET /payment[/:id]` | `POST /integration/payment/search` only |
+| `list_timeclock` | `GET /timeclock` | `POST /timesheet/search` (documented on the *Timeclock* page) |
+
+CJVlady's fork reached the same routes by running against a live shop, which is
+independent confirmation that the documented ones are the ones that work.
+
+`create_payment` still posts to `POST /payment`, which is also undocumented. The
+documented route is `POST /integration/payment/manual/charge`, but its page
+lists **no body parameters**, and guessing a payment body is exactly how
+`add_canned_service_labor` came to persist wrong values behind a 200. It has
+been left on the old route, where it fails loudly, until someone can confirm the
+body against a live account. See `docs/LIMITATIONS.md`.
+
+### 8. Email search body — an extrapolation, not a finding
+
+v1.1.0 changed `search_customers_by_email` to send `{ emails: [{ email }] }` and
+the changelog credited the shape to a field report. **It was not in the report.**
+audioedgeaz's issue #1 said only that the API "requires `phoneNumbers` /
+`emails`" — the key names, not their elements. The `[{ email }]` form was copied
+by analogy from the phone fix, whose `[{ number }]` element shape *was* found
+live by Andy Kimberle.
+
+Shopmonkey's [Customer page](https://shopmonkey.dev/resources/customer) types
+both as bare `array` and gives `{ "emails": [] }` as its example, so the
+documentation cannot settle the element shape for either.
+
+Two independent forks — ZanPope's and CJVlady's — changed email search to plain
+strings (`{ emails: ["a@b.com"] }`), and CJVlady's change came out of live
+acceptance testing. v1.2.0 sends strings first and falls back to the object form
+if the API rejects it. **Still unverified by us.**
+
 ## What is still unverified
 
 Still no API key. Everything above is documentation research plus field reports
@@ -157,3 +211,4 @@ rest on field reports rather than published documentation.
 [svc]: https://web.archive.org/web/20260207104717/https://shopmonkey.dev/resources/service
 [ord]: https://web.archive.org/web/20260410225847/https://shopmonkey.dev/resources/order
 [lab]: https://web.archive.org/web/20250915071202/https://shopmonkey.dev/resources/labor
+[zan]: https://github.com/ZanPope/shopmonkey-mcp-server
