@@ -73,11 +73,11 @@ curl -i https://YOUR-PROXY.up.railway.app/mcp
 
 ## Auth0 Setup
 
-See `_bmad-output/implementation-artifacts/sops/worksheet-auth0-mcp-setup.md` in the abot-platform repo for the full Auth0 configuration walkthrough.
+See Auth0's documentation for creating a Regular Web Application and an API (audience) for the proxy.
 
 **Per-client Auth0 tenant naming convention:**
-- Tenant: `{client-slug}-mcp` → e.g. `cerberus-mcp` → becomes `cerberus-mcp.auth0.com`
-- Application name: `{client-slug}-mcp-proxy` → e.g. `cerberus-mcp-proxy`
+- Tenant: `{client-slug}-mcp` → e.g. `acme-mcp` → becomes `acme-mcp.auth0.com`
+- Application name: `{client-slug}-mcp-proxy` → e.g. `acme-mcp-proxy`
 - Callback URL: `https://{proxy-domain}/.auth/oidc/callback`
 
 ---

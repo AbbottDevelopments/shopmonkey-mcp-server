@@ -42,6 +42,21 @@ const toolModules = [
 
 const allDefinitions = toolModules.flatMap(m => m.definitions);
 
+// Tools that only read. Everything else can change data in Shopmonkey.
+const isRead = (name: string): boolean => /^(get_|list_|search_|report_|lookup_)/.test(name);
+// Opt-in: set MCP_READ_ONLY=true to hide and refuse every non-read tool.
+// (Idea from CJVlady's fork, which made this the default; here it is off by
+// default so existing deployments keep working.)
+const readOnlyMode = (): boolean => process.env.MCP_READ_ONLY === 'true';
+const annotate = (t: (typeof allDefinitions)[number]) => ({
+  ...t,
+  annotations: {
+    readOnlyHint: isRead(t.name),
+    destructiveHint: /^delete_/.test(t.name),
+    openWorldHint: true,
+  },
+});
+
 const allHandlers: ToolHandlerMap = {};
 for (const mod of toolModules) {
   for (const name of Object.keys(mod.handlers)) {
@@ -59,14 +74,14 @@ export function createServer(): Server {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: allDefinitions,
+    tools: allDefinitions.filter(t => !readOnlyMode() || isRead(t.name)).map(annotate),
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const handler = allHandlers[name];
 
-    if (!handler) {
+    if (!handler || (readOnlyMode() && !isRead(name))) {
       return {
         content: [{ type: 'text', text: `Unknown tool: ${name}` }],
         isError: true,

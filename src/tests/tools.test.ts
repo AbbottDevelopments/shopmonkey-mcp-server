@@ -15,7 +15,7 @@ import * as reports from '../tools/reports.js';
 import * as labels from '../tools/labels.js';
 
 const toolModules = [
-  { name: 'orders', mod: orders, expectedTools: 4 },         // -1 delete_order (C3)
+  { name: 'orders', mod: orders, expectedTools: 5 },         // -1 delete_order (C3), +1 update_service
   { name: 'customers', mod: customers, expectedTools: 6 },   // -1 list_customers + 3 search tools (C4)
   { name: 'vehicles', mod: vehicles, expectedTools: 7 },     // -1 list_vehicles + 4 new tools
   { name: 'inventory', mod: inventory, expectedTools: 4 },
@@ -30,9 +30,9 @@ const toolModules = [
 ];
 
 describe('Tool registration', () => {
-  it('has 69 total tool definitions', () => {
+  it('has 70 total tool definitions', () => {
     const total = toolModules.reduce((sum, m) => sum + m.mod.definitions.length, 0);
-    assert.equal(total, 69);
+    assert.equal(total, 70);
   });
 
   for (const { name, mod, expectedTools } of toolModules) {

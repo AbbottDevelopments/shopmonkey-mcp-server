@@ -18,6 +18,89 @@ A corrected endpoint is a PATCH if callers are unaffected and a MAJOR if it is
 not — v1.1.0 is a MINOR despite making `orderId` required on `list_services`,
 because the previous route returned 404 and no working call could break.
 
+## [1.2.0] — 2026-10-01
+
+Reconciles this server with Shopmonkey's current documentation and with what
+three public forks learned running against real shops. Full credit in
+[CREDITS.md](CREDITS.md); what each change rests on, and how sure we are, in the
+*Verification ledger* in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+
+**Still no live account.** Nothing here has been executed by the maintainers.
+Entries marked **(unverified)** rest on a field report or on documentation that
+does not specify the detail in question.
+
+### Fixed
+
+- **Inventory tools called routes that no page documents.** `list_inventory_parts`,
+  `get_inventory_part` and `list_inventory_tires` now use `POST /inventory_part/search`,
+  `GET /inventory_part/:id` and `POST /inventory_tire/search`. `search_parts` called
+  `GET /part`, which is the order line-item resource, and now matches over the
+  inventory search client-side. Location filters are rechecked client-side
+  **(server-side `where` unverified)**.
+- **Payment reads called routes that no page documents.** `list_payments` and
+  `get_payment` now use `POST /integration/payment/search`, the only documented
+  payment read. `get_payment` requires the returned id to match rather than
+  trusting the filter **(`where` unverified)**.
+- **`list_timeclock` called `GET /timeclock`.** It now uses `POST /timesheet/search`.
+  Date ranges are applied client-side on `clockIn`, because no date filter is
+  documented for the endpoint. Results are now an object carrying `truncated`.
+- **`assign_technician` used `labor_bulk`, which has been removed from the
+  documentation** and answers "Route not found" on a live shop. It now writes each
+  line with `PUT /order/:orderId/service/:serviceId/labor/:id`, then reads the
+  order back and reports per line whether the technician persisted. `laborIds` is
+  now optional (omit it to assign every labor line on the order).
+- **`list_labor` called a nested `GET .../labor` route that is not documented.** It
+  now reads the `labors` carried on `GET /order/:orderId/service`.
+- **`search_customers` ignored its `query`** (issue #5). It now filters by
+  `normalizedName` `contains`, one request per word, verifies each response
+  against the word that asked for it, and falls back to a client-side scan whose
+  `coverage` field says plainly that it is partial **(unverified — the operator is
+  a field report, not documented)**. Results are compact summaries; use
+  `get_customer` for the full record.
+- **`list_orders` ignored `status` and `customerId`** (issue #6). When either is
+  given, the list is now paged and filtered client-side, and the result reports
+  `truncated`.
+- **`create_order` could not set `status`.** `POST /order` has no such field. The
+  status is now applied with a follow-up `PUT`, and the result reports what was
+  corrected and anything that still did not persist.
+- **`search_customers_by_email` body shape** now sends plain strings first and
+  retries the `{ email }` object form if rejected **(unverified)**. The v1.1.0
+  entry that attributed the object form to a field report was wrong — see
+  [docs/API-PROVENANCE.md](docs/API-PROVENANCE.md) §8.
+
+### Added
+
+- `update_service` — set a service's name or note, verified by read-back
+- `complaint`, `recommendation` and `workflowStatusId` on `create_order` and
+  `update_order`; `update_order` now reports which fields persisted
+- `fetchAllRecordsPost` — pages `POST …/search` endpoints, which take `limit` and
+  `skip` in the body
+- Tool annotations (`readOnlyHint`, `destructiveHint`) on every tool
+- `MCP_READ_ONLY=true` — opt-in; hides and refuses every non-read tool
+
+### Changed
+
+- Tool count 69 → 70
+- Response shapes changed on routes that previously failed or misbehaved:
+  `search_customers`, `search_parts`, `list_timeclock`, `create_order`,
+  `update_order` and filtered `list_orders` now return objects with diagnostic
+  fields rather than bare arrays. Callers that parsed the old shapes need updating.
+  This is a MINOR under the convention above only because the previous routes did
+  not work.
+- `@modelcontextprotocol/sdk` 1.30.0 → 1.31.0; `npm audit fix` clears three
+  moderate advisories (`fast-uri`, `hono`, `ip-address`). Audit now reports zero.
+- `docs/API-PROVENANCE.md` corrected: the Labor page it cited documented four
+  endpoints, not one; the email body shape was an extrapolation, not a field
+  report.
+
+### Not changed, on purpose
+
+- **`create_payment`** still posts to the undocumented `POST /payment`. The
+  documented route lists no body parameters, and a guessed payment body is how
+  the v1.0.0 line-item bug happened. It fails loudly instead. See
+  [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+- Fee / subcontract / tire canned-service field names (issue #4) remain unverified.
+
 ## [1.1.1] — 2026-09-04
 
 Security patch. No tool contract changes.
@@ -165,6 +248,7 @@ from master in `b350588`.
 The tag has been left where it is rather than moved — it has been published since
 April, and repointing a released tag is worse than documenting it. Use `v1.1.0`.
 
+[1.2.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/AbbottDevelopments/shopmonkey-mcp-server/releases/tag/v1.0.0

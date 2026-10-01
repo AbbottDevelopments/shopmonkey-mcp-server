@@ -91,8 +91,8 @@ The following API endpoints exist in the Shopmonkey documentation but their requ
 | Resource | Available Tools | Missing Tools | Notes |
 |----------|----------------|---------------|-------|
 | Inventory | `list_inventory_parts`, `get_inventory_part`, `list_inventory_tires`, `search_parts` | create, update, delete | Body schema not verified |
-| Payments | `list_payments`, `get_payment`, `create_payment` | update, list-by-date | Update schema not verified |
-| Labor | `list_labor` | create, update | Body schema not verified |
+| Payments | `list_payments`, `get_payment`, `create_payment` | update, list-by-date | `create_payment` posts to `POST /payment`, which is **undocumented**; see *Payment creation* below |
+| Labor | `list_labor`, `assign_technician` | create, update | Body schema not verified (`assign_technician` writes only `technicianId`) |
 | Timeclock | `list_timeclock` | create, update | Body schema not verified |
 
 **Workaround:** Use the Shopmonkey web UI for create/update operations on these resources, and the MCP server for read-only access.
@@ -155,37 +155,67 @@ writes through those three tools as unverified.
 
 Reported against a live account by
 [audioedgeaz](https://github.com/AbbottDevelopments/shopmonkey-mcp-server/issues/1),
-alongside the date-filter behaviour above. **Not yet fixed** — both need a live
-account to fix safely, since the correct request shape is unknown:
+alongside the date-filter behaviour above.
 
-| Tool | Behaviour |
-|---|---|
-| `search_customers` | The `query` argument is ignored; returns arbitrary records in id order. Returning *something* rather than an error is worse than failing — a caller can conclude a customer does not exist and create a duplicate. |
-| `list_orders` | The `status` filter is ignored; asking for `Invoice` can return `Estimate` records. |
+| Tool | Behaviour | Status |
+|---|---|---|
+| `search_customers` | The old `query` argument was ignored; the endpoint returned arbitrary records in id order. Returning *something* rather than an error is worse than failing — a caller can conclude a customer does not exist and create a duplicate. | **Reworked in v1.2.0** (issue #5) — see *Verification ledger*. Unverified by us. |
+| `list_orders` | The `status` filter is ignored; asking for `Invoice` can return `Estimate` records. `customerId` is assumed to behave the same way. | **Worked around in v1.2.0** (issue #6): when either filter is given, the list is paged and filtered client-side. Verified only in the sense that it no longer depends on the server honouring the filter. |
+
+### Payment creation — undocumented route, left alone on purpose
+
+`create_payment` posts to `POST /payment`, which appears in no documentation. The
+documented route is `POST /integration/payment/manual/charge`, but Shopmonkey's
+page for it lists **no body parameters**. Changing the route would mean guessing
+a request body for a tool that moves money, and guessing bodies is how
+`add_canned_service_labor` came to write wrong values behind a 200. So the tool
+stays on the old route, where an unknown route fails loudly, until someone with a
+live account can confirm the charge body. **Treat `create_payment` as
+unverified and probably non-functional.**
+
+## Verification ledger (v1.2.0)
+
+Each change in v1.2.0, with what it actually rests on. "Docs" means Shopmonkey's
+published documentation at <https://shopmonkey.dev> as read on 2026-10-01.
+"Field report" means an operator ran it against a live shop and said so in their
+fork. **Nothing below has been executed by the maintainers.** A mocked test suite
+checks that we build the request we intended, not that Shopmonkey accepts it.
+
+| Change | Basis | Confidence |
+|---|---|---|
+| Inventory parts/tires via `POST /inventory_part/search`, `/inventory_tire/search`; `GET /inventory_part/:id` | Docs list exactly these routes; CJVlady's live testing independently found the underscore paths | Route: high. `where: { locationId }` semantics: **unverified** (rechecked client-side) |
+| `search_parts` as a client-side match over `/inventory_part/search` | No free-text inventory filter is documented; approach follows CJVlady's fork | Route: high. Matching is ours; scan is capped at 1000, reported as `truncated` |
+| Payments via `POST /integration/payment/search` | Docs list this as the only payment read; CJVlady found it live | Route: high. `where` filters: **unverified** (rechecked client-side) |
+| Timeclock via `POST /timesheet/search` with `where.technicianId.in` and `locationIds` | Docs list these fields; route found live by CJVlady | Route: high. Filter behaviour: **unverified** |
+| Timeclock **date ranges** | Not documented for this endpoint. Applied client-side on the documented `clockIn` response field | Works regardless of the server. CJVlady's server-side `clockIn.gte/.lte` form was deliberately **not** adopted — undocumented, could be silently ignored |
+| `list_labor` reads `labors` from `GET /order/:orderId/service` | Docs: the service list response carries `labors`. Matches CJVlady's fork | High |
+| `assign_technician` via `PUT /order/:orderId/service/:serviceId/labor/:id` `{ technicianId }` | Docs list this route and the `technicianId` field; ZanPope's fork found it first; CJVlady reports `labor_bulk` returning "Route not found" live | Route: high. Each write is **read back and reported per line**, so a silent no-op is visible |
+| `search_customers` via `where: { normalizedName: { contains: <word> } }`, one request per word | **Field report only** (CJVlady). Neither the `contains` operator nor `normalizedName` is in the docs, which type `where` only as "any" | **Unverified.** Every response is checked against the word that requested it; a failed check falls back to a client-side scan and says so in `coverage` |
+| `search_customers_by_email` sends `{ emails: ["a@b.co"] }`, retrying `{ emails: [{ email }] }` if rejected | Docs type `emails` only as "array". Strings: ZanPope's fork and CJVlady's live testing. Objects: our own v1.1.0 extrapolation | **Unverified.** See [API-PROVENANCE.md](./API-PROVENANCE.md) §8 |
+| `search_customers_by_phone` sends `{ phoneNumbers: [{ number }] }` (unchanged) | Field report: Andy Kimberle, live. Docs type it only as "array" | Field-verified, not doc-verified |
+| `create_order` no longer sends `status`; applies it with a follow-up `PUT` | Docs: `POST /order` has no `status` body field and `PUT /order/:id` does. CJVlady reports the live API creating an Estimate regardless | High that `status` is not a create field |
+| `complaint`, `recommendation`, `workflowStatusId` on create/update order | Docs list all three on both `POST /order` and `PUT /order/:id` | High (docs). Persistence **unverified**; reported via read-back |
+| `update_order` / `create_order` read-back (`applied` / `ignored`) | Our own safeguard against the accepted-and-ignored behaviour above | n/a — it reports, it does not assume |
+| `update_service` via `PUT /order/:orderId/service/:id` `{ name, note }` | Docs list the route and both fields. Tool concept from CJVlady's fork | Route/fields: high. Persistence reported via read-back |
+| `fetchAllRecordsPost`, tool annotations, `MCP_READ_ONLY` | Our code, informed by CJVlady's fork | n/a |
+
+### Still unverified after v1.2.0
+
+- Everything in issue #7 not listed above: `POST /order` end to end, `PUT /label/:labelId/assign`, inventory/payment/timeclock write bodies.
+- Fee / subcontract / tire canned-service field names (issue #4).
+- Whether `PUT` merges or replaces on `/customer`, `/vehicle`, `/order` and `/appointment` (raised in issue #1, never tested).
+- `search_customers` `contains` operator; email element shape; every `where` filter in the ledger marked unverified.
 
 ### Routes in use that the documentation does not list
 
-Two routes this server calls are not in the published documentation. Both are
-field-reported working; neither has been executed by the maintainers. They are
-listed here so that a future 404 has an obvious first suspect.
-
 | Route | Used by | Basis |
 |---|---|---|
-| `GET /order/:orderId/service/:serviceId/labor` | `list_labor` | Field-reported by [Zan Pope](https://github.com/ZanPope/shopmonkey-mcp-server) |
 | `PUT /label/:labelId/assign` | `assign_label` | Field-reported by [Andy Kimberle](https://github.com/AndyKimberle/shopmonkey-mcp-server) |
+| `POST /payment` | `create_payment` | Inherited from v1.0.0; see *Payment creation* above |
+| `POST /customer/search` with `where: { normalizedName: { contains } }` | `search_customers` | Route documented; the filter is a field report (CJVlady) |
 
-The documented alternative for reading labor is to take the `labors` array off
-the service object returned by `GET /order/:orderId/service`, if the nested
-route ever stops working.
-
-### Timeclock date filtering — unconfirmed
-
-**Status:** Unconfirmed
-`list_timeclock` still passes `startDate`/`endDate` as query params to
-`GET /timeclock`. Whether that endpoint honours them has not been tested, and
-the behaviour of the other list endpoints is not encouraging. Treat a
-date-filtered timeclock result as unverified until someone checks it against a
-live shop.
+The nested `GET /order/:orderId/service/:serviceId/labor` route used by v1.1.0 has
+been removed — it was never documented.
 
 ## API Conventions
 

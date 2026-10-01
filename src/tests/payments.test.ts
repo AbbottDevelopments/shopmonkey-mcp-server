@@ -35,46 +35,53 @@ function mockSuccess(data: unknown): MockResponse {
   return { status: 200, body: { success: true, data } };
 }
 
+const reqBody = () => JSON.parse(capturedRequests[0].body ?? '{}') as Record<string, unknown>;
+
 // ─── list_payments ────────────────────────────────────────────────────────────
 
 describe('list_payments', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; delete process.env.SHOPMONKEY_LOCATION_ID; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; if (originalLocationId) process.env.SHOPMONKEY_LOCATION_ID = originalLocationId; });
 
-  it('sends GET /payment with no params when called with no args', async () => {
+  it('sends POST /integration/payment/search (the only documented read), never GET /payment', async () => {
     setupMock(mockSuccess([]));
     const result = await payments.handlers.list_payments({});
-    assert.equal(capturedRequests[0].method, 'GET');
-    assert.ok(capturedRequests[0].url.includes('/payment'));
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.equal(new URL(capturedRequests[0].url).pathname.endsWith('/integration/payment/search'), true);
     assert.ok(!result.isError);
   });
 
-  it('passes orderId as a query param', async () => {
+  it('sends orderId as where.orderId', async () => {
     setupMock(mockSuccess([]));
     await payments.handlers.list_payments({ orderId: 'ord-1' });
-    assert.ok(capturedRequests[0].url.includes('orderId=ord-1'));
+    assert.deepEqual(reqBody().where, { orderId: 'ord-1' });
   });
 
-  it('passes limit and skip for pagination', async () => {
+  it('passes limit and skip in the request body', async () => {
     setupMock(mockSuccess([]));
     await payments.handlers.list_payments({ limit: 10, skip: 20 });
-    assert.ok(capturedRequests[0].url.includes('limit=10'));
-    assert.ok(capturedRequests[0].url.includes('skip=20'));
+    assert.equal(reqBody().limit, 10);
+    assert.equal(reqBody().skip, 20);
   });
 
-  it('injects SHOPMONKEY_LOCATION_ID env var when no locationId arg is provided', async () => {
+  it('injects SHOPMONKEY_LOCATION_ID when no locationId arg is provided', async () => {
     process.env.SHOPMONKEY_LOCATION_ID = 'loc-from-env';
     setupMock(mockSuccess([]));
     await payments.handlers.list_payments({});
-    assert.ok(capturedRequests[0].url.includes('locationId=loc-from-env'));
+    assert.deepEqual(reqBody().where, { locationId: 'loc-from-env' });
   });
 
   it('does not override an explicit locationId with the env var', async () => {
     process.env.SHOPMONKEY_LOCATION_ID = 'loc-from-env';
     setupMock(mockSuccess([]));
     await payments.handlers.list_payments({ locationId: 'loc-explicit' });
-    assert.ok(capturedRequests[0].url.includes('locationId=loc-explicit'));
-    assert.ok(!capturedRequests[0].url.includes('loc-from-env'));
+    assert.deepEqual(reqBody().where, { locationId: 'loc-explicit' });
+  });
+
+  it('drops payments for other orders when the server ignores the where filter', async () => {
+    setupMock(mockSuccess([{ id: 'p1', orderId: 'ord-1' }, { id: 'p2', orderId: 'ord-2' }]));
+    const result = await payments.handlers.list_payments({ orderId: 'ord-1' });
+    assert.deepEqual(JSON.parse(result.content[0].text).map((p: { id: string }) => p.id), ['p1']);
   });
 });
 
@@ -84,20 +91,27 @@ describe('get_payment', () => {
   beforeEach(() => { process.env.SHOPMONKEY_API_KEY = 'test-key-123'; });
   afterEach(() => { globalThis.fetch = originalFetch; delete process.env.SHOPMONKEY_API_KEY; });
 
-  it('sends GET /payment/:id', async () => {
-    setupMock(mockSuccess({ id: 'pay-1', amountCents: 15050 }));
+  it('searches by id — no read-by-id route is documented', async () => {
+    setupMock(mockSuccess([{ id: 'pay-1', amountCents: 15050 }]));
     const result = await payments.handlers.get_payment({ id: 'pay-1' });
-    assert.equal(capturedRequests[0].method, 'GET');
-    assert.ok(capturedRequests[0].url.endsWith('/payment/pay-1'));
+    assert.equal(capturedRequests[0].method, 'POST');
+    assert.equal(new URL(capturedRequests[0].url).pathname.endsWith('/integration/payment/search'), true);
+    assert.deepEqual(reqBody().where, { id: 'pay-1' });
     assert.ok(!result.isError);
   });
 
-  it('returns the payment data as JSON text', async () => {
-    setupMock(mockSuccess({ id: 'pay-1', amountCents: 15050, method: 'cash' }));
-    const result = await payments.handlers.get_payment({ id: 'pay-1' });
-    const parsed = JSON.parse(result.content[0].text);
+  it('returns the matching payment as JSON text', async () => {
+    setupMock(mockSuccess([{ id: 'pay-1', amountCents: 15050, paymentType: 'Cash' }]));
+    const parsed = JSON.parse((await payments.handlers.get_payment({ id: 'pay-1' })).content[0].text);
     assert.equal(parsed.amountCents, 15050);
-    assert.equal(parsed.method, 'cash');
+    assert.equal(parsed.paymentType, 'Cash');
+  });
+
+  it('does not trust an ignored filter: a different payment is "not found"', async () => {
+    setupMock(mockSuccess([{ id: 'some-other-payment' }]));
+    const result = await payments.handlers.get_payment({ id: 'pay-1' });
+    assert.ok(result.isError);
+    assert.ok(result.content[0].text.includes('not found'));
   });
 
   it('returns an error when id is missing', async () => {

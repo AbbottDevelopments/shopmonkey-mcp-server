@@ -350,3 +350,59 @@ async function shopmonkeyRequestInner<T>(
 
   throw lastError ?? new Error('Request failed after maximum retries');
 }
+
+/**
+ * POST-body counterpart of {@link fetchAllRecords}, for the `/search` endpoints,
+ * which take `limit` and `skip` in the request body rather than the query string.
+ *
+ * Termination, de-duplication and the `truncated` contract are identical to the
+ * GET helper, for the same reason: these endpoints have been observed
+ * reordering between identical calls, so a single capped page is an arbitrary
+ * sample, not a prefix. Contributed in concept by CJVlady
+ * (CJVlady/shopmonkey-mcp-server, `fetchAllRecordsPost`); reimplemented here.
+ */
+export async function fetchAllRecordsPost<T extends { id?: unknown }>(
+  path: string,
+  body?: Record<string, unknown>,
+  options?: { pageSize?: number; maxRecords?: number }
+): Promise<FetchAllResult<T>> {
+  const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE;
+  const maxRecords = options?.maxRecords ?? DEFAULT_MAX_RECORDS;
+
+  const records: T[] = [];
+  const seenIds = new Set<unknown>();
+  let skip = 0;
+  let moreRemain = false;
+  // An endpoint that ignores `skip` replays the same window forever. Three
+  // consecutive pages that add nothing new mean we are looping, not paging.
+  let barrenPages = 0;
+
+  while (skip < maxRecords) {
+    const limit = Math.min(pageSize, maxRecords - skip);
+    const { data: page, meta } = await shopmonkeyRequestWithMeta<T[]>('POST', path, { ...body, limit, skip });
+
+    if (!Array.isArray(page) || page.length === 0) { moreRemain = false; break; }
+
+    let added = 0;
+    for (const record of page) {
+      const id = record?.id;
+      if (id !== undefined) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+      }
+      records.push(record);
+      added++;
+    }
+
+    skip += page.length;
+
+    if (meta?.hasMore === false) { moreRemain = false; break; }
+    if (page.length < limit) { moreRemain = false; break; }
+
+    barrenPages = added === 0 ? barrenPages + 1 : 0;
+    if (barrenPages >= 3) { moreRemain = false; break; }
+    moreRemain = true;
+  }
+
+  return { records, truncated: moreRemain && skip >= maxRecords };
+}
